@@ -1,0 +1,70 @@
+{
+   object_store_shutdown
+   Memcheck:Cond
+   fun:_store_remove
+   fun:object_store_shutdown
+   fun:*_store_shutdown
+   ...
+}
+{
+   object_store_remove
+   Memcheck:Cond
+   fun:_store_remove
+   fun:object_store_remove
+   fun:*_store_remove
+}
+{
+   object_store_release
+   Memcheck:Cond
+   fun:object_store_release
+   fun:key_store_unwrap
+   ...
+}
+{
+   gmtsub-malloc
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   fun:gmt_init
+   fun:__pthread_once_handler
+   fun:_os_once_callout
+   fun:pthread_once
+   fun:gmtsub
+   fun:SecUtils_Epoch2IsoTime
+   fun:SecKey_GetProperties
+   fun:SecCipher_GetInstance
+   fun:SecCipher_SingleInput
+   fun:SecCipher_SingleInputId
+   fun:SecStore_ComputeMacKey
+   fun:SecStore_StoreDataWithKey
+   fun:SecStore_StoreData
+   fun:_Z9testStorehh
+   fun:_Z11runKeyTestsP8SuiteCtx
+   fun:testIt
+   fun:main
+}
+{
+   gmtsub-calloc
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:calloc
+   ...
+   fun:gmt_init
+   fun:__pthread_once_handler
+   fun:_os_once_callout
+   fun:pthread_once
+   fun:gmtsub
+   fun:SecUtils_Epoch2IsoTime
+   fun:SecKey_GetProperties
+   fun:SecCipher_GetInstance
+   fun:SecCipher_SingleInput
+   fun:SecCipher_SingleInputId
+   fun:SecStore_ComputeMacKey
+   fun:SecStore_StoreDataWithKey
+   fun:SecStore_StoreData
+   fun:_Z9testStorehh
+   fun:_Z11runKeyTestsP8SuiteCtx
+   fun:testIt
+   fun:main
+}
