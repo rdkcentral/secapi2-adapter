@@ -23,8 +23,8 @@
  *
  */
 
-#ifndef SEC_SECURITY_COMMON_H
-#define SEC_SECURITY_COMMON_H
+#ifndef SEC_SECURITY_COMMON_H_
+#define SEC_SECURITY_COMMON_H_
 
 #include "sec_security_datatype.h"
 
@@ -764,4 +764,4 @@ void SecKeyProperties_SetDefault(Sec_KeyProperties* props, Sec_KeyType type);
 }
 #endif
 
-#endif /* SEC_SECURITY_COMMON_H */
+#endif /* SEC_SECURITY_COMMON_H_ */

@@ -19,7 +19,7 @@
 #include "jtype.h" // NOLINT
 #include "cipher.h"
 #include "mac.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include "sec_security_comcastids.h"
 #include "test_ctx.h"
 #include <openssl/aes.h>

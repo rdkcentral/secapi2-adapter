@@ -20,7 +20,7 @@
 #define SEC_ADAPTER_BUNDLE_H
 
 #include "sec_adapter_processor.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include <memory.h>
 
 void Sec_FindRAMBundleData(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID object_id, Sec_RAMBundleData** data,

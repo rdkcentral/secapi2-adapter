@@ -17,7 +17,7 @@
  */
 
 #include "bundle.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include "test_ctx.h"
 
 Sec_Result testBundleProvision(SEC_OBJECTID id, Sec_StorageLoc loc, SEC_SIZE size) {

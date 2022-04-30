@@ -18,8 +18,8 @@
 
 #include "sec_adapter_processor.h"
 #include "sec_adapter_pubops.h"
-#include "sec_adapter_utils.h"
 #include "sec_security.h"
+#include "sec_security_utils.h"
 #include <memory.h>
 #include <openssl/sha.h>
 

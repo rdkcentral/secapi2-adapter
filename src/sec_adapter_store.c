@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sec_adapter_store.h"
+#include "sec_security_store.h"
 #include <stdbool.h>
 
 #define SEC_STORE_MAC_KEY_INPUT "securestore" \
@@ -87,7 +87,7 @@ void* SecStore_GetUserHeader(void* store) {
     return (SEC_BYTE*) store + sizeof(SecStore_Header);
 }
 
-static SEC_SIZE SecStore_GetHeaderLen(void* store) {
+SEC_SIZE SecStore_GetHeaderLen(void* store) {
     return Sec_BEBytesToUint32(SecStore_GetHeader(store)->header_len);
 }
 

@@ -16,8 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef SEC_SECURITY_COMCASTIDS_H
-#define SEC_SECURITY_COMCASTIDS_H
+#ifndef SEC_SECURITY_COMCASTIDS_H_
+#define SEC_SECURITY_COMCASTIDS_H_
 
 #include "sec_security_datatype.h"
 
@@ -120,4 +120,4 @@ extern "C" {
 }
 #endif
 
-#endif /* SEC_SECURITY_COMCASTIDS_H */
+#endif /* SEC_SECURITY_COMCASTIDS_H_ */

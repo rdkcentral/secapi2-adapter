@@ -16,8 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef SEC_SECURITY_DATATYPE_H
-#define SEC_SECURITY_DATATYPE_H
+#ifndef SEC_SECURITY_DATATYPE_H_
+#define SEC_SECURITY_DATATYPE_H_
 
 #include <sys/param.h>
 
@@ -643,4 +643,4 @@ typedef void Sec_ProtectedMemHandle;
 }
 #endif
 
-#endif /* SEC_SECURITY_DATATYPE_H */
+#endif /* SEC_SECURITY_DATATYPE_H_ */

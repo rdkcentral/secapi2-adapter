@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include "sec_security.h"
 
 int Sec_Memcmp(const void* ptr1, const void* ptr2, const size_t num) {

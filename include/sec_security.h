@@ -16,8 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef SEC_SECURITY_H
-#define SEC_SECURITY_H
+#ifndef SEC_SECURITY_H_
+#define SEC_SECURITY_H_
 
 #include "sec_security_common.h"
 #include "sec_security_datatype.h"
@@ -986,4 +986,4 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
 }
 #endif
 
-#endif /* SEC_SECURITY_H */
+#endif /* SEC_SECURITY_H_ */
