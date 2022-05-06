@@ -121,30 +121,29 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     }
 
     /* setup key and cert directories */
-    if (appDir != NULL) {
-        (*processorHandle)->app_dir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
-        if ((*processorHandle)->app_dir == NULL) {
-            SEC_LOG_ERROR("Calloc failed");
-            return SEC_RESULT_FAILURE;
-        }
-
-        result = Sec_SetStorageDir(appDir, SEC_APP_DIR_DEFAULT, (*processorHandle)->app_dir);
-        if (result != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("Error creating app_dir");
-            SEC_FREE((*processorHandle)->app_dir);
-            SEC_FREE(*processorHandle);
-            return result;
-        }
-
-        result = SecUtils_MkDir((*processorHandle)->app_dir);
-        if (result != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("Error creating app_dir");
-            SEC_FREE((*processorHandle)->app_dir);
-            SEC_FREE(*processorHandle);
-            return result;
-        }
-    } else {
+    if (appDir == NULL)
         appDir = SEC_APP_DIR_DEFAULT;
+
+    (*processorHandle)->app_dir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
+    if ((*processorHandle)->app_dir == NULL) {
+        SEC_LOG_ERROR("Calloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    result = Sec_SetStorageDir(appDir, SEC_APP_DIR_DEFAULT, (*processorHandle)->app_dir);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Error creating app_dir");
+        SEC_FREE((*processorHandle)->app_dir);
+        SEC_FREE(*processorHandle);
+        return result;
+    }
+
+    result = SecUtils_MkDir((*processorHandle)->app_dir);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Error creating app_dir");
+        SEC_FREE((*processorHandle)->app_dir);
+        SEC_FREE(*processorHandle);
+        return result;
     }
 
     if (globalDir != NULL) {
