@@ -49,6 +49,7 @@ void runProcessorTests(SuiteCtx* suite) {
     RUN_TEST(suite, testProcessorGetKeyLadderMinMaxDepth(SEC_KEYLADDERROOT_UNIQUE))
     RUN_TEST(suite, testProcessorGetKeyLadderMinMaxDepth(SEC_KEYLADDERROOT_SHARED))
     RUN_TEST(suite, testProcessorNativeMallocFree())
+    RUN_TEST(suite, testProcessorInitReleaseInit())
 }
 
 void runBundleTests(SuiteCtx* suite) {
