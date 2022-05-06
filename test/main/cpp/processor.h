@@ -31,4 +31,6 @@ Sec_Result testProcessorNativeMallocFree();
 
 Sec_Result testProcessorGetInfo();
 
+Sec_Result testProcessorInitReleaseInit();
+
 #endif // PROCESSOR_H
