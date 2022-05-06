@@ -121,7 +121,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     }
 
     /* setup key and cert directories */
-    if (NULL == appDir) appDir = SEC_APP_DIR_DEFAULT;
     if (appDir != NULL) {
         (*processorHandle)->app_dir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
         if ((*processorHandle)->app_dir == NULL) {
@@ -144,6 +143,8 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
             SEC_FREE(*processorHandle);
             return result;
         }
+    } else {
+        appDir = SEC_APP_DIR_DEFAULT;
     }
 
     if (globalDir != NULL) {
