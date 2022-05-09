@@ -340,11 +340,8 @@ Sec_Result SecProcessor_GetInfo(Sec_ProcessorHandle* processorHandle, Sec_Proces
     if (secProcInfo == NULL)
         return SEC_RESULT_INVALID_PARAMETERS;
 
-    sa_version version;
-    sa_status status = sa_get_version(&version);
-    CHECK_STATUS(status)
+    memcpy(secProcInfo->version, SEC_API_VERSION, sizeof(SEC_API_VERSION));
 
-    memcpy(secProcInfo, &version, sizeof(sa_version));
     return SEC_RESULT_SUCCESS;
 }
 
