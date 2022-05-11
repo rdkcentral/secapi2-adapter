@@ -18,7 +18,7 @@
 
 #include "keyctrl.h" // NOLINT
 #include "jtype.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include "sec_security_comcastids.h"
 #include "sign.h"
 #include "test_ctx.h"

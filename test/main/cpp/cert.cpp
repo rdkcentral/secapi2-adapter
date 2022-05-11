@@ -17,7 +17,7 @@
  */
 
 #include "cert.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include "test_creds.h"
 #include "test_ctx.h"
 

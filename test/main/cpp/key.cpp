@@ -18,8 +18,8 @@
 
 #include "key.h" // NOLINT
 #include "cipher.h"
-#include "sec_adapter_store.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_store.h"
+#include "sec_security_utils.h"
 #include "test_ctx.h"
 #include <cstdlib>
 #if OPENSSL_VERSION_NUMBER < 0x10100000L

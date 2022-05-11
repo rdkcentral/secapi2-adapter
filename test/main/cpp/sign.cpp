@@ -18,7 +18,7 @@
 
 #include "sign.h" // NOLINT
 #include "digest.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include "test_ctx.h"
 
 static Sec_Result BigNumToBuffer(const BIGNUM* bignum, SEC_BYTE* buffer, SEC_SIZE buffer_len) {

@@ -16,10 +16,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef SEC_ADAPTER_UTILS_H_
-#define SEC_ADAPTER_UTILS_H_
+#ifndef SEC_SECURITY_UTILS_H_
+#define SEC_SECURITY_UTILS_H_
 
-#include "sec_adapter_store.h"
+#include "sec_security_store.h"
 #include "sec_security.h"
 #include <dirent.h>
 #include <fcntl.h>
@@ -205,4 +205,4 @@ Sec_Result verify_verification_file(Sec_ProcessorHandle* processorHandle, char* 
 }
 #endif
 
-#endif // SEC_ADAPTER_UTILS_H_
+#endif // SEC_SECURITY_UTILS_H_

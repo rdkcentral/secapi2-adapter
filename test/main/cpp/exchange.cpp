@@ -19,7 +19,7 @@
 #include "exchange.h" // NOLINT
 #include "cipher.h"
 #include "mac.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 #include "test_ctx.h"
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
