@@ -617,6 +617,9 @@ Sec_Result SecUtils_Base64Decode(const SEC_BYTE* input, SEC_SIZE in_len, SEC_BYT
         }
     }
 
+    if (ret_len == 0)
+        return SEC_RESULT_FAILURE;
+    
     *out_len = ret_len;
     return SEC_RESULT_SUCCESS;
 }

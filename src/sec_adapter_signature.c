@@ -48,8 +48,9 @@ Sec_Result SecSignature_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Si
     CHECK_PROCHANDLE(processorHandle)
 
     Sec_KeyType key_type = SecKey_GetKeyType(keyHandle);
-    if (SecSignature_IsValidKey(key_type, algorithm, mode) != SEC_RESULT_SUCCESS)
+    if (SecSignature_IsValidKey(key_type, algorithm, mode) != SEC_RESULT_SUCCESS) {
         return SEC_RESULT_INVALID_PARAMETERS;
+    }
 
     *signatureHandle = calloc(1, sizeof(Sec_SignatureHandle));
     if (*signatureHandle == NULL) {

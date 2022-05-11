@@ -83,7 +83,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     SecAdapter_DerivedInputs derived_inputs;
     SecUtils_KeyStoreHeader keystore_header;
     SEC_BYTE store[SEC_KEYCONTAINER_MAX_LEN];
-
     if (pthread_once(&key_once, make_key) != 0)
         return SEC_RESULT_FAILURE;
 
@@ -92,14 +91,42 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return SEC_RESULT_FAILURE;
     }
 
+    char* tempAppDir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
+    if (tempAppDir == NULL) {
+        SEC_LOG_ERROR("Calloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    result = Sec_SetStorageDir(appDir, SEC_APP_DIR_DEFAULT, tempAppDir);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Error creating appDir");
+        SEC_FREE(tempAppDir);
+        return result;
+    }
+
+    char* tempGlobalDir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
+    if (tempGlobalDir == NULL) {
+        SEC_LOG_ERROR("Calloc failed");
+        SEC_FREE(tempAppDir);
+        return SEC_RESULT_FAILURE;
+    }
+
+    result = Sec_SetStorageDir(globalDir, SEC_GLOBAL_DIR_DEFAULT, tempGlobalDir);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Error creating globalDir");
+        SEC_FREE(tempAppDir);
+        SEC_FREE(tempGlobalDir);
+        return result;
+    }
+
     size_t free_proc_handle = MAX_PROC_HANDLES;
     for (size_t i = 0; i < MAX_PROC_HANDLES; i++) {
-        const char* temp_app_dir = appDir == NULL ? SEC_APP_DIR_DEFAULT : appDir;
-        const char* temp_global_dir = globalDir == NULL ? SEC_GLOBAL_DIR_DEFAULT : globalDir;
         if (processorHandles[i] != NULL) {
-            if (memcmp(processorHandles[i]->global_dir, temp_global_dir, strlen(temp_global_dir)) == 0 &&
-                    memcmp(processorHandles[i]->app_dir, temp_app_dir, strlen(temp_app_dir)) == 0) {
+            if (strcmp(processorHandles[i]->global_dir, tempGlobalDir) == 0 &&
+                    strcmp(processorHandles[i]->app_dir, tempAppDir) == 0) {
                 *processorHandle = processorHandles[i];
+                SEC_FREE(tempAppDir);
+                SEC_FREE(tempGlobalDir);
                 return SEC_RESULT_SUCCESS;
             }
         } else {
@@ -110,6 +137,8 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
 
     if (free_proc_handle == MAX_PROC_HANDLES) {
         SEC_LOG_ERROR("No free proc handles");
+        SEC_FREE(tempAppDir);
+        SEC_FREE(tempGlobalDir);
         return SEC_RESULT_FAILURE;
     }
 
@@ -117,69 +146,31 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     *processorHandle = calloc(1, sizeof(Sec_ProcessorHandle));
     if (*processorHandle == NULL) {
         SEC_LOG_ERROR("Calloc failed");
+        SEC_FREE(tempAppDir);
+        SEC_FREE(tempGlobalDir);
         return SEC_RESULT_FAILURE;
     }
 
     /* setup key and cert directories */
-    if (appDir != NULL) {
-        (*processorHandle)->app_dir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
-        if ((*processorHandle)->app_dir == NULL) {
-            SEC_LOG_ERROR("Calloc failed");
-            return SEC_RESULT_FAILURE;
-        }
-
-        result = Sec_SetStorageDir(appDir, SEC_APP_DIR_DEFAULT, (*processorHandle)->app_dir);
-        if (result != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("Error creating app_dir");
-            SEC_FREE((*processorHandle)->app_dir);
-            SEC_FREE(*processorHandle);
-            return result;
-        }
-
-        result = SecUtils_MkDir((*processorHandle)->app_dir);
-        if (result != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("Error creating app_dir");
-            SEC_FREE((*processorHandle)->app_dir);
-            SEC_FREE(*processorHandle);
-            return result;
-        }
+    (*processorHandle)->app_dir = tempAppDir;
+    result = SecUtils_MkDir((*processorHandle)->app_dir);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Error creating app_dir");
+        SEC_FREE((*processorHandle)->app_dir);
+        SEC_FREE(tempGlobalDir);
+        SEC_FREE(*processorHandle);
+        return result;
     }
 
-    if (globalDir != NULL) {
-        (*processorHandle)->global_dir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
-        if ((*processorHandle)->global_dir == NULL) {
-            SEC_LOG_ERROR("Calloc failed");
-            return SEC_RESULT_FAILURE;
-        }
-
-        result = Sec_SetStorageDir(globalDir, SEC_GLOBAL_DIR_DEFAULT, (*processorHandle)->global_dir);
-        if (result != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("Error creating global_dir");
-            SEC_FREE((*processorHandle)->app_dir);
-            SEC_FREE((*processorHandle)->global_dir);
-            SEC_FREE(*processorHandle);
-            return result;
-        }
-    }
-
-    // Calls client_thread_shutdown when the thread exits.
-    if (pthread_key_create(&key, thread_shutdown) != 0) {
-        SEC_LOG_ERROR("tss_create failed");
-        return SEC_RESULT_FAILURE;
-    }
-
-    processorHandles[free_proc_handle] = *processorHandle;
-    if (pthread_setspecific(key, processorHandle) != 0) {
-        SEC_LOG_ERROR("Error storing procHandle in thread local storage");
+    (*processorHandle)->global_dir = tempGlobalDir;
+    result = SecUtils_MkDir((*processorHandle)->global_dir);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Error creating app_dir");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
-        return SEC_RESULT_FAILURE;
+        return result;
     }
-
-    // Initial OpenSSL.
-    Sec_InitOpenSSL();
 
     /* generate sec store proc ins */
     result = SecStore_GenerateLadderInputs(*processorHandle, SEC_STORE_AES_LADDER_INPUT, NULL,
@@ -188,7 +179,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error Generating LadderInputs");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -198,7 +188,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error Filling KeyStoreUserHeader");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -209,7 +198,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error storing derived_inputs");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -220,7 +208,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error creating SEC_OBJECTID_STORE_AES_KEY");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -231,7 +218,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error creating SEC_STORE_MAC_LADDER_INPUT");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -241,7 +227,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error creating keystore_header");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -252,7 +237,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error creating sec_store");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -263,7 +247,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error creating SEC_OBJECTID_STORE_MACKEYGEN_KEY");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
@@ -278,11 +261,11 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         SEC_LOG_ERROR("Error creating certificate mac key");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
-        processorHandles[free_proc_handle] = NULL;
         SEC_FREE(*processorHandle);
         return result;
     }
 
+    processorHandles[free_proc_handle] = *processorHandle;
     return SEC_RESULT_SUCCESS;
 }
 
@@ -453,12 +436,14 @@ Sec_Result Sec_SetStorageDir(const char* provided_dir, const char* default_dir, 
 }
 
 static void make_key() {
-    // Calls release_proc_handle on thread exit and passes in the processorHandle stored in the key. But does not run
-    // on application (main thread) exit.
-    pthread_key_create(&key, release_proc_handle);
+    // Calls proc_shutdown on thread exit.
+    pthread_key_create(&key, proc_shutdown);
 
     for (size_t i = 0; i < MAX_PROC_HANDLES; i++)
         processorHandles[i] = NULL;
+
+    // Initial OpenSSL.
+    Sec_InitOpenSSL();
 
     // Calls proc_shutdown when the application (main thread) exits.
     if (atexit(proc_shutdown) != 0) {

@@ -112,3 +112,23 @@ Sec_Result testProcessorNativeMallocFree() {
 
     return SEC_RESULT_SUCCESS;
 }
+
+Sec_Result testProcessorInitReleaseInit() {
+    {
+        TestCtx ctx;
+        if (ctx.init(nullptr, nullptr) != SEC_RESULT_SUCCESS) {
+            SEC_LOG_ERROR("TestCtx.init failed");
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
+    {
+        TestCtx ctx;
+        if (ctx.init("/opt/drm", "/opt/drm") != SEC_RESULT_SUCCESS) {
+            SEC_LOG_ERROR("TestCtx.init failed");
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
+    return SEC_RESULT_SUCCESS;
+}

@@ -397,7 +397,7 @@ Sec_Result SecKey_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID
     Sec_Result result = retrieve_key_data(processorHandle, object_id, &location, key_data);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_FREE(key_data);
-        SEC_LOG_ERROR("retrieve_key_data failed");
+        SEC_LOG_ERROR("retrieve_key_data failed %llx ", object_id);
         return result;
     }
 
