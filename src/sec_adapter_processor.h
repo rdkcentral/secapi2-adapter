@@ -21,8 +21,8 @@
 
 #include "sa.h"
 #include "sec_adapter_key.h"
-#include "sec_adapter_store.h"
-#include "sec_adapter_utils.h"
+#include "sec_security_store.h"
+#include "sec_security_utils.h"
 #include "sec_security.h"
 #include "sec_version.h"
 #include <memory.h>

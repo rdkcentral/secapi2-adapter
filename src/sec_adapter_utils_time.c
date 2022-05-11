@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sec_adapter_utils.h"
+#include "sec_security_utils.h"
 
 #define SEC_ISO_TIME_FORMAT "%Y-%m-%dT%H:%M:%S"
 

@@ -16,8 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef SEC_ADAPTER_STORE_H
-#define SEC_ADAPTER_STORE_H
+#ifndef SEC_SECURITY_STORE_H_
+#define SEC_SECURITY_STORE_H_
 
 #include "sec_adapter_processor.h"
 #include "sec_adapter_pubops.h"
@@ -89,31 +89,37 @@ typedef struct {
 Sec_Result SecStore_GenerateLadderInputs(Sec_ProcessorHandle* processorHandle, const char* input, const char* input2,
         SEC_BYTE* output, SEC_SIZE len);
 
+SecStore_Header* SecStore_GetHeader(void* store);
+
+void* SecStore_GetUserHeader(void* store);
+
+SEC_SIZE SecStore_GetStoreLen(void* store);
+
+SEC_SIZE SecStore_GetUserHeaderLen(void* store);
+
+SEC_SIZE SecStore_GetDataLen(void *store);
+
+SEC_SIZE SecStore_CalculateRequiredStoreLen(SEC_SIZE user_header_len, SEC_SIZE data_len);
+
+Sec_Result SecStore_RetrieveData(Sec_ProcessorHandle *proc, SEC_BOOL require_mac, void *user_header,
+        SEC_SIZE user_header_len, void *data, SEC_SIZE data_len, void *store, SEC_SIZE storeLen);
+
 Sec_Result SecStore_RetrieveDataWithKey(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID aesKeyId,
         SEC_OBJECTID macGenId, SEC_BOOL require_mac, void* user_header, SEC_SIZE user_header_len, void* data,
         SEC_SIZE data_len, void* store, SEC_SIZE storeLen);
+
+Sec_Result SecStore_StoreData(Sec_ProcessorHandle *proc, SEC_BOOL encrypt, SEC_BOOL gen_mac,
+        SEC_BYTE *user_header_magic, void *user_header, SEC_SIZE user_header_len, void *data, SEC_SIZE data_len,
+        void *store, SEC_SIZE storeLen);
 
 Sec_Result SecStore_StoreDataWithKey(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID aesKeyId, SEC_OBJECTID macGenId,
         SEC_BOOL encrypt, SEC_BOOL gen_mac, SEC_BYTE* user_header_magic, void* user_header, SEC_SIZE user_header_len,
         void* data, SEC_SIZE data_len, void* store, SEC_SIZE storeLen);
 
-Sec_Result SecStore_StoreData(Sec_ProcessorHandle* processorHandle, SEC_BOOL encrypt, SEC_BOOL gen_mac,
-        SEC_BYTE* user_header_magic, void* user_header, SEC_SIZE user_header_len, void* data, SEC_SIZE data_len,
-        void* store, SEC_SIZE storeLen);
-
-SEC_SIZE SecStore_GetStoreLen(void* store);
-
-Sec_Result SecStore_RetrieveData(Sec_ProcessorHandle* processorHandle, SEC_BOOL require_mac, void* user_header,
-        SEC_SIZE user_header_len, void* data, SEC_SIZE data_len, void* store, SEC_SIZE storeLen);
-
-SEC_SIZE SecStore_GetDataLen(void* store);
-
-void* SecStore_GetUserHeader(void* store);
-
-SecStore_Header* SecStore_GetHeader(void* store);
+SEC_SIZE SecStore_GetHeaderLen(void* store);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // SEC_ADAPTER_STORE_H
+#endif // SEC_SECURITY_STORE_H_

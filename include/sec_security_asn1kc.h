@@ -18,8 +18,8 @@
 
 #ifndef SEC_COMMON_17
 
-#ifndef SEC_SECURITY_ASN1KC_H
-#define SEC_SECURITY_ASN1KC_H
+#ifndef SEC_SECURITY_ASN1KC_H_
+#define SEC_SECURITY_ASN1KC_H_
 
 #include "sec_security_datatype.h"
 #include <openssl/asn1t.h>
@@ -110,4 +110,4 @@ Sec_Result SecAsn1KC_GetAttrString(Sec_Asn1KC* kc, const char* key, char* buffer
 
 #endif
 
-#endif
+#endif /* SEC_SECURITY_ASN1KC_H_ */

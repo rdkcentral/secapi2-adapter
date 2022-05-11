@@ -75,13 +75,14 @@ add_library(sec_api SHARED
         include/sec_security_comcastids.h
         include/sec_security_common.h
         include/sec_security_datatype.h
+        include/sec_security_store.h
+        include/sec_security_utils.h
         include/sec_version.h
         src/sec_adapter_bundle.h        src/sec_adapter_bundle.c
         src/sec_adapter_cipher.h        src/sec_adapter_cipher.c
         src/sec_adapter_key.h           src/sec_adapter_key.c
         src/sec_adapter_processor.h     src/sec_adapter_processor.c
         src/sec_adapter_pubops.h        src/sec_adapter_pubops.c
-        src/sec_adapter_store.h         src/sec_adapter_store.c
         src/sec_adapter_svp.h           src/sec_adapter_svp.c
         src/sec_adapter_asn1kc.c
         src/sec_adapter_buffer.c
@@ -94,6 +95,7 @@ add_library(sec_api SHARED
         src/sec_adapter_mac.c
         src/sec_adapter_random.c
         src/sec_adapter_signature.c
+        src/sec_adapter_store.c
         src/sec_adapter_utils.c
         src/sec_adapter_utils_time.c
         src/sec_adapter_key_legacy.h)
