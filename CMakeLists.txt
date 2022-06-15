@@ -83,7 +83,7 @@ add_library(sec_api SHARED
         src/sec_adapter_key.h           src/sec_adapter_key.c
         src/sec_adapter_processor.h     src/sec_adapter_processor.c
         src/sec_adapter_pubops.h        src/sec_adapter_pubops.c
-        src/sec_adapter_svp.h           src/sec_adapter_svp.c
+        include/sec_security_svp.h      src/sec_adapter_svp.c
         src/sec_adapter_asn1kc.c
         src/sec_adapter_buffer.c
         src/sec_adapter_certificate.c

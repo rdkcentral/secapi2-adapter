@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sec_adapter_svp.h"
+#include "sec_security_svp.h"
 
 // Deprecated
 Sec_Result Sec_OpaqueBufferMalloc(SEC_SIZE bufLength, void** handle, void* params) {
@@ -39,8 +39,16 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** h
         return SEC_RESULT_FAILURE;
     }
 
-    sa_status status = sa_svp_buffer_alloc(&(*handle)->svp_buffer, bufLength);
+    sa_status status = sa_svp_memory_alloc(&(*handle)->svp_memory, bufLength);
     if (status != SA_STATUS_OK) {
+        free(*handle);
+        CHECK_STATUS(status)
+    }
+
+    (*handle)->size = bufLength;
+    status = sa_svp_buffer_create(&(*handle)->svp_buffer, (*handle)->svp_memory, bufLength);
+    if (status != SA_STATUS_OK) {
+        sa_svp_memory_free((*handle)->svp_memory);
         free(*handle);
         CHECK_STATUS(status)
     }
