@@ -35,12 +35,13 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** h
 
     *handle = (Sec_OpaqueBufferHandle*) calloc(1, sizeof(Sec_OpaqueBufferHandle));
     if (*handle == NULL) {
-        SEC_LOG_ERROR("Calloc failed");
+        SEC_LOG_ERROR("calloc failed");
         return SEC_RESULT_FAILURE;
     }
 
     sa_status status = sa_svp_memory_alloc(&(*handle)->svp_memory, bufLength);
     if (status != SA_STATUS_OK) {
+        SEC_LOG_ERROR("sa_svp_memory_alloc failed");
         free(*handle);
         CHECK_STATUS(status)
     }
@@ -48,6 +49,7 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** h
     (*handle)->size = bufLength;
     status = sa_svp_buffer_create(&(*handle)->svp_buffer, (*handle)->svp_memory, bufLength);
     if (status != SA_STATUS_OK) {
+        SEC_LOG_ERROR("sa_svp_buffer_create failed");
         sa_svp_memory_free((*handle)->svp_memory);
         free(*handle);
         CHECK_STATUS(status)
