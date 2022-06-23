@@ -16,8 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef SEC_ADAPTER_SVP_H
-#define SEC_ADAPTER_SVP_H
+#ifndef SEC_SECURITY_SVP_H
+#define SEC_SECURITY_SVP_H
 
 #include "sa.h"
 #include "sec_adapter_processor.h"
@@ -25,6 +25,8 @@
 
 struct Sec_OpaqueBufferHandle_struct {
     sa_svp_buffer svp_buffer;
+    void* svp_memory;
+    size_t size;
 };
 
-#endif // SEC_ADAPTER_SVP_H
+#endif // SEC_SECURITY_SVP_H
