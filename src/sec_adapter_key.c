@@ -174,6 +174,7 @@ Sec_KeyType SecKey_GetKeyTypeForClearKeyContainer(Sec_KeyContainer kc) {
             return SEC_KEYTYPE_ECC_NISTP256_PUBLIC;
 
         case SEC_KEYCONTAINER_PKCS8:
+            // Return something valid since we don't know the actual key type.
             return SEC_KEYTYPE_RSA_1024;
 
         default:
