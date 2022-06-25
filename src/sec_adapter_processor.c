@@ -86,6 +86,10 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     if (pthread_once(&key_once, make_key) != 0)
         return SEC_RESULT_FAILURE;
 
+    void* processor_handles_ptr = processorHandles;
+    if (pthread_setspecific(key, processor_handles_ptr) != 0)
+        return SEC_RESULT_FAILURE;
+
     if (processorHandle == NULL) {
         SEC_LOG_ERROR("proc_handle is NULL");
         return SEC_RESULT_FAILURE;
@@ -434,7 +438,7 @@ Sec_Result Sec_SetStorageDir(const char* provided_dir, const char* default_dir, 
 
 static void make_key() {
     // Calls proc_shutdown on thread exit.
-    pthread_key_create(&key, proc_shutdown);
+    pthread_key_create(&key, thread_shutdown);
 
     for (size_t i = 0; i < MAX_PROC_HANDLES; i++)
         processorHandles[i] = NULL;

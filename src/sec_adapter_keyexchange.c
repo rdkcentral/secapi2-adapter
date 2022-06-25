@@ -148,27 +148,34 @@ Sec_Result SecKeyExchange_GenerateKeys(Sec_KeyExchangeHandle* keyExchangeHandle,
                 return SEC_RESULT_FAILURE;
             }
 
-            DH* dh = EVP_PKEY_get0_DH(evp_pkey);
+            DH* dh = EVP_PKEY_get1_DH(evp_pkey);
             if (dh == NULL) {
                 EVP_PKEY_free(evp_pkey);
                 SEC_LOG_ERROR("EVP_PKEY_get0_DH failed");
                 return SEC_RESULT_FAILURE;
             }
 
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
             const BIGNUM* dh_public_key = DH_get0_pub_key(dh);
+#else
+            const BIGNUM* dh_public_key = dh->pub_key;
+#endif
             if (dh_public_key == NULL) {
                 EVP_PKEY_free(evp_pkey);
+                DH_free(dh);
                 SEC_LOG_ERROR("DH_get0_pub_key failed");
                 return SEC_RESULT_FAILURE;
             }
 
             if (SecUtils_BigNumToBuffer(dh_public_key, publicKey, pubKeySize) != SEC_RESULT_SUCCESS) {
                 EVP_PKEY_free(evp_pkey);
+                DH_free(dh);
                 SEC_LOG_ERROR("SecUtils_BigNumToBuffer failed");
                 return SEC_RESULT_FAILURE;
             }
 
             EVP_PKEY_free(evp_pkey);
+            DH_free(dh);
             break;
         }
         case SEC_KEYEXCHANGE_ECDH: {
@@ -249,6 +256,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
             }
 
             DH* dh = DH_new();
+#if OPENSSL_VERSION_NUMBER >= 0x10100000
             if (DH_set0_pqg(dh, dh_p, NULL, dh_g) != 1) {
                 SEC_LOG_ERROR("BN_bin2bn failed");
                 BN_free(dh_pub_key);
@@ -264,6 +272,11 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
                 DH_free(dh);
                 return SEC_RESULT_FAILURE;
             }
+#else
+            dh->p = dh_p;
+            dh->g = dh_g;
+            dh->pub_key = dh_pub_key;
+#endif
 
             EVP_PKEY* evp_pkey = EVP_PKEY_new();
             if (evp_pkey == NULL) {
