@@ -48,15 +48,12 @@ endif ()
 
 enable_testing()
 
-add_subdirectory(tasecureapi/reference)
-set(SACLIENT_INCLUDE_DIR tasecureapi/reference/src/client/include)
-
 # Set OPENSSL_ROOT_DIR if not found
 find_package(OpenSSL REQUIRED)
 # Set YAJL_ROOT if not found
 find_package(YAJL REQUIRED)
 # Set SACLIENT_ROOT if not found
-#find_package(SACLIENT REQUIRED)
+find_package(SACLIENT REQUIRED)
 
 include_directories(
         ${OPENSSL_INCLUDE_DIR}
@@ -106,13 +103,12 @@ add_library(sec_api SHARED
 set_target_properties(sec_api PROPERTIES
         LINKER_LANGUAGE C
         SO_VERSION 2.3
-        VERSION 2.3.2.4
+        VERSION 2.3.2.25
         )
 
 target_link_libraries(sec_api
         PRIVATE
-#        ${SACLIENT_LIBRARY}
-        saclient
+        ${SACLIENT_LIBRARY}
         ${OPENSSL_CRYPTO_LIBRARY}
         )
 
