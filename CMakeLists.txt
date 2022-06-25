@@ -48,12 +48,15 @@ endif ()
 
 enable_testing()
 
+add_subdirectory(tasecureapi/reference)
+set(SACLIENT_INCLUDE_DIR tasecureapi/reference/src/client/include)
+
 # Set OPENSSL_ROOT_DIR if not found
 find_package(OpenSSL REQUIRED)
 # Set YAJL_ROOT if not found
 find_package(YAJL REQUIRED)
 # Set SACLIENT_ROOT if not found
-find_package(SACLIENT REQUIRED)
+#find_package(SACLIENT REQUIRED)
 
 include_directories(
         ${OPENSSL_INCLUDE_DIR}
@@ -108,7 +111,8 @@ set_target_properties(sec_api PROPERTIES
 
 target_link_libraries(sec_api
         PRIVATE
-        ${SACLIENT_LIBRARY}
+#        ${SACLIENT_LIBRARY}
+        saclient
         ${OPENSSL_CRYPTO_LIBRARY}
         )
 
@@ -156,7 +160,13 @@ target_link_libraries(sec_api_2_adapter_test
         ${YAJL_LIBRARY}
         )
 
-add_test(sec_api2_adapter_test sec_api_utest_main)
+add_custom_command(
+        TARGET sec_api_2_adapter_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/root_keystore.p12
+        ${CMAKE_CURRENT_BINARY_DIR}/root_keystore.p12)
+
+add_test(sec_api_2_adapter_test sec_api_2_adapter_test)
 
 target_clangformat_setup(sec_api_2_adapter_test)
 

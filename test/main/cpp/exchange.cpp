@@ -255,7 +255,6 @@ static Sec_Result DH_generate_key(DH* dh, SEC_BYTE* publicKey, SEC_SIZE pubKeySi
         return SEC_RESULT_FAILURE;
     }
 
-
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     int temp_len = BN_bn2bin(dh->pub_key, publicKey);
 #else

@@ -617,8 +617,8 @@ Sec_Result SecKey_GetKeyProperties(Sec_KeyHandle* keyHandle, Sec_KeyProperties* 
 /**
  * @brief Get the length of the specified key in bytes
  *
- * In case of symetric keys, the length returned is the actual size of the key data.
- * In case of asymetric keys, the length returned is the size of the modulus in bytes.
+ * In case of symmetric keys, the length returned is the actual size of the key data.
+ * In case of asymmetric keys, the length returned is the size of the modulus in bytes.
  *
  * @param keyHandle key handle
  *

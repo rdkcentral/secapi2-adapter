@@ -94,8 +94,8 @@ extern "C" {
 /* aes block size (in bytes) */
 #define SEC_AES_BLOCK_SIZE 16
 
-/* maximum length of a symetric key (AES or MAC) (in bytes) */
-#define SEC_SYMETRIC_KEY_MAX_LEN SEC_MAX(SEC_AES_KEY_MAX_LEN, SEC_MAC_KEY_MAX_LEN)
+/* maximum length of a symmetric key (AES or MAC) (in bytes) */
+#define SEC_SYMMETRIC_KEY_MAX_LEN SEC_MAX(SEC_AES_KEY_MAX_LEN, SEC_MAC_KEY_MAX_LEN)
 
 /* maximum length of the IV value (in bytes) */
 #define SEC_CIPHER_IV_MAX_LEN SEC_AES_KEY_MAX_LEN
@@ -283,6 +283,7 @@ typedef enum {
     SEC_KEYCONTAINER_SOC_INTERNAL_13,
     SEC_KEYCONTAINER_SOC_INTERNAL_14,
     SEC_KEYCONTAINER_SOC_INTERNAL_15,
+    SEC_KEYCONTAINER_PKCS8,
     SEC_KEYCONTAINER_NUM
 } Sec_KeyContainer;
 

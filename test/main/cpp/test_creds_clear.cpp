@@ -664,7 +664,7 @@ EVP_PKEY* TestCreds::asOpenSslEvpPkey(TestKey key) {
 
         SEC_RSA_FREE(rsa);
     } else {
-        SEC_LOG_ERROR("Not an asymetric key type");
+        SEC_LOG_ERROR("Not an asymmetric key type");
         return nullptr;
     }
 
@@ -1081,10 +1081,10 @@ ProvKey* TestCreds::wrapAesWithAes(const SEC_BYTE* clear, Sec_KeyType type, cons
     std::vector<SEC_BYTE> wrapped;
     wrapped.resize(SEC_KEYCONTAINER_MAX_LEN);
     SEC_SIZE wrapped_len;
-    if (SecUtils_WrapSymetric(ctx.proc(), wrappingId, symAlg, &iv[0], const_cast<SEC_BYTE*>(clear),
+    if (SecUtils_WrapSymmetric(ctx.proc(), wrappingId, symAlg, &iv[0], const_cast<SEC_BYTE*>(clear),
                 SecKey_GetKeyLenForKeyType(type), &wrapped[0], wrapped.size(), &wrapped_len) !=
             SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("SecUtils_WrapSymetric failed");
+        SEC_LOG_ERROR("SecUtils_WrapSymmetric failed");
         return nullptr;
     }
     wrapped.resize(wrapped_len);
@@ -1127,9 +1127,9 @@ ProvKey* TestCreds::wrapRsaWithAes(RSA* rsa, const SEC_BYTE* wrapping, Sec_KeyTy
     std::vector<SEC_BYTE> wrapped;
     wrapped.resize(SEC_KEYCONTAINER_MAX_LEN);
     SEC_SIZE wrapped_len;
-    if (SecUtils_WrapSymetric(ctx.proc(), wrappingId, symAlg, &iv[0], &pkcs8[0], pkcs8.size(), &wrapped[0],
+    if (SecUtils_WrapSymmetric(ctx.proc(), wrappingId, symAlg, &iv[0], &pkcs8[0], pkcs8.size(), &wrapped[0],
                 wrapped.size(), &wrapped_len) != SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("SecUtils_WrapSymetric failed");
+        SEC_LOG_ERROR("SecUtils_WrapSymmetric failed");
         return nullptr;
     }
     wrapped.resize(wrapped_len);

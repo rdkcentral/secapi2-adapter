@@ -101,6 +101,7 @@ Sec_Result SecSignature_Process(Sec_SignatureHandle* signatureHandle, SEC_BYTE* 
             case SEC_SIGNATUREALGORITHM_RSA_SHA1_PSS_DIGEST:
                 signature_algorithm = SA_SIGNATURE_ALGORITHM_RSA_PSS;
                 rsa_pss_parameters.digest_algorithm = SA_DIGEST_ALGORITHM_SHA1;
+                rsa_pss_parameters.mgf1_digest_algorithm = SA_DIGEST_ALGORITHM_SHA1;
                 rsa_pss_parameters.precomputed_digest =
                         (signatureHandle->algorithm == SEC_SIGNATUREALGORITHM_RSA_SHA1_PSS_DIGEST);
                 rsa_pss_parameters.salt_length = SHA_DIGEST_LENGTH;
@@ -120,6 +121,7 @@ Sec_Result SecSignature_Process(Sec_SignatureHandle* signatureHandle, SEC_BYTE* 
             case SEC_SIGNATUREALGORITHM_RSA_SHA256_PSS_DIGEST:
                 signature_algorithm = SA_SIGNATURE_ALGORITHM_RSA_PSS;
                 rsa_pss_parameters.digest_algorithm = SA_DIGEST_ALGORITHM_SHA256;
+                rsa_pss_parameters.mgf1_digest_algorithm = SA_DIGEST_ALGORITHM_SHA256;
                 rsa_pss_parameters.precomputed_digest =
                         (signatureHandle->algorithm == SEC_SIGNATUREALGORITHM_RSA_SHA256_PSS_DIGEST);
                 rsa_pss_parameters.salt_length = SHA256_DIGEST_LENGTH;

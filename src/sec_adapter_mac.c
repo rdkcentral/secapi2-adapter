@@ -30,7 +30,7 @@ struct Sec_MacHandle_struct {
 Sec_Result SecMac_SingleInput(Sec_ProcessorHandle* processorHandle, Sec_MacAlgorithm alg, Sec_KeyHandle* keyHandle,
         SEC_BYTE* input, SEC_SIZE input_len, SEC_BYTE* mac, SEC_SIZE* mac_len) {
     Sec_Result result;
-    Sec_MacHandle* macHandle= NULL;
+    Sec_MacHandle* macHandle = NULL;
 
     result = SecMac_GetInstance(processorHandle, alg, keyHandle, &macHandle);
     if (result != SEC_RESULT_SUCCESS) {

@@ -207,7 +207,7 @@ Sec_Result testCertSignWithPkcs7(SEC_OBJECTID id_cert, TestCert cert, SEC_OBJECT
 
     X509* x509Cert = nullptr;
     RSA* rsa;
-    EVP_PKEY* evp;
+    EVP_PKEY* evp = nullptr;
     BIO* bio = nullptr;
     BIO* out = nullptr;
     PKCS7* pkcs7 = nullptr;
@@ -219,7 +219,19 @@ Sec_Result testCertSignWithPkcs7(SEC_OBJECTID id_cert, TestCert cert, SEC_OBJECT
 
     do {
         rsa = SecKey_ToEngineRSAWithCert(keyHandle, certificateHandle);
+        if (rsa == nullptr) {
+            SEC_LOG_ERROR("EVP_PKEY_assign failed");
+            result = SEC_RESULT_FAILURE;
+            break;
+        }
+
         evp = EVP_PKEY_new();
+        if (evp == nullptr) {
+            SEC_LOG_ERROR("EVP_PKEY_assign failed");
+            result = SEC_RESULT_FAILURE;
+            break;
+        }
+
         if (EVP_PKEY_assign(evp, EVP_PKEY_RSA, rsa) != 1) {
             SEC_LOG_ERROR("EVP_PKEY_assign failed");
             result = SEC_RESULT_FAILURE;

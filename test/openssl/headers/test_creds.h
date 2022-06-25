@@ -107,7 +107,7 @@ public:
     }
 
     std::vector<SEC_BYTE> key; // NOLINT
-    Sec_KeyContainer kc; // NOLINT
+    Sec_KeyContainer kc;       // NOLINT
 };
 
 class ProvCert {
@@ -116,7 +116,7 @@ public:
         : cert(std::move(_cert)), cc(_cc) {
     }
 
-    std::vector<SEC_BYTE> cert; // NOLINT
+    std::vector<SEC_BYTE> cert;  // NOLINT
     Sec_CertificateContainer cc; // NOLINT
 };
 

@@ -154,7 +154,8 @@ static Sec_Result SecStore_ComputeMacKey(Sec_ProcessorHandle* processorHandle, S
 }
 
 static Sec_Result SecStore_Encrypt(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID keyId, void* store,
-        SEC_SIZE storeLen) { SEC_SIZE expected_enc_data_len;
+        SEC_SIZE storeLen) {
+    SEC_SIZE expected_enc_data_len;
     SEC_SIZE written;
 
     if (store == NULL) {

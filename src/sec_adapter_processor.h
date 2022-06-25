@@ -21,9 +21,9 @@
 
 #include "sa.h"
 #include "sec_adapter_key.h"
+#include "sec_security.h"
 #include "sec_security_store.h"
 #include "sec_security_utils.h"
-#include "sec_security.h"
 #include "sec_version.h"
 #include <memory.h>
 #include <openssl/err.h>
@@ -99,17 +99,17 @@ static const int SECAPI3_KEY_DEPTH = 4;
             break; \
         case SA_STATUS_NO_AVAILABLE_RESOURCE_SLOT: \
             return SEC_RESULT_NO_KEYSLOTS_AVAILABLE; \
-        case SA_STATUS_BAD_KEY_TYPE: \
+        case SA_STATUS_INVALID_KEY_TYPE: \
         case SA_STATUS_NULL_PARAMETER: \
-        case SA_STATUS_BAD_PARAMETER: \
+        case SA_STATUS_INVALID_PARAMETER: \
             return SEC_RESULT_INVALID_PARAMETERS; \
-        case SA_STATUS_BAD_SVP_BUFFER: \
+        case SA_STATUS_INVALID_SVP_BUFFER: \
             return SEC_RESULT_INVALID_SVP_DATA; \
         case SA_STATUS_OPERATION_NOT_SUPPORTED: \
             return SEC_RESULT_UNIMPLEMENTED_FEATURE; \
         case SA_STATUS_VERIFICATION_FAILED: \
             return SEC_RESULT_VERIFICATION_FAILED; \
-        case SA_STATUS_BAD_KEY_FORMAT: \
+        case SA_STATUS_INVALID_KEY_FORMAT: \
         case SA_STATUS_OPERATION_NOT_ALLOWED: \
         case SA_STATUS_SELF_TEST: \
         case SA_STATUS_INTERNAL_ERROR: \

@@ -363,13 +363,13 @@ Sec_Result SecMac_SingleInputId(Sec_ProcessorHandle* processorHandle, Sec_MacAlg
         SEC_BYTE* input, SEC_SIZE input_len, SEC_BYTE* mac, SEC_SIZE* mac_len);
 
 /**
- * @brief Checks if a passed in key type is symetric.
+ * @brief Checks if a passed in key type is symmetric.
  *
  * @param type key type
  *
- * @return 1 if key type is symetric, 0 if asymetric
+ * @return 1 if key type is symmetric, 0 if asymmetric
  */
-SEC_BOOL SecKey_IsSymetric(Sec_KeyType type);
+SEC_BOOL SecKey_IsSymmetric(Sec_KeyType type);
 
 /**
  * @brief Checks if a passed in key type is an AES key.
@@ -439,7 +439,7 @@ SEC_BOOL SecKey_IsPubEcc(Sec_KeyType type);
 /**
  * @brief Obtain a key length in bytes for a specified key type.
  *
- * For symetric keys, the return value will be the actual key size.  For asymetric keys
+ * For symmetric keys, the return value will be the actual key size.  For asymmetric keys
  * the return value will be the modulus size.
  *
  * @param keyType key type

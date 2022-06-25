@@ -21,9 +21,9 @@
 
 #include "sa_types.h"
 #include "sec_adapter_processor.h"
+#include "sec_security.h"
 #include "sec_security_svp.h"
 #include "sec_security_utils.h"
-#include "sec_security.h"
 #include <memory.h>
 #include <openssl/rsa.h>
 

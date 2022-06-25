@@ -16,8 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sec_security_utils.h"
 #include "sec_security.h"
+#include "sec_security_utils.h"
 
 int Sec_Memcmp(const void* ptr1, const void* ptr2, const size_t num) {
     size_t i;
@@ -116,38 +116,32 @@ void Sec_Uint64ToBEBytes(uint64_t val, SEC_BYTE* bytes) {
 
 uint16_t Sec_EndianSwap_uint16(uint16_t val) {
     uint16_t ret = 0;
-    stdint_EndianSwap(val, ret)
-    return ret;
+    stdint_EndianSwap(val, ret) return ret;
 }
 
 int16_t Sec_EndianSwap_int16(int16_t val) {
     int16_t ret = 0;
-    stdint_EndianSwap(val, ret)
-    return ret;
+    stdint_EndianSwap(val, ret) return ret;
 }
 
 uint32_t Sec_EndianSwap_uint32(uint32_t val) {
     uint32_t ret = 0;
-    stdint_EndianSwap(val, ret)
-    return ret;
+    stdint_EndianSwap(val, ret) return ret;
 }
 
 int32_t Sec_EndianSwap_int32(int32_t val) {
     int32_t ret = 0;
-    stdint_EndianSwap(val, ret)
-    return ret;
+    stdint_EndianSwap(val, ret) return ret;
 }
 
 int64_t Sec_EndianSwap_int64(int64_t val) {
     int64_t ret = 0;
-    stdint_EndianSwap(val, ret)
-    return ret;
+    stdint_EndianSwap(val, ret) return ret;
 }
 
 uint64_t Sec_EndianSwap_uint64(uint64_t val) {
     uint64_t ret = 0;
-    stdint_EndianSwap(val, ret)
-    return ret;
+    stdint_EndianSwap(val, ret) return ret;
 }
 
 void SecKeyProperties_SetDefault(Sec_KeyProperties* props, Sec_KeyType type) {

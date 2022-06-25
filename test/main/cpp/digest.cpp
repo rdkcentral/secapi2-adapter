@@ -116,7 +116,7 @@ Sec_Result testDigestOverKey(Sec_DigestAlgorithm alg, SEC_OBJECTID id, TestKey k
         return SEC_RESULT_FAILURE;
     }
 
-    Sec_KeyHandle *keyHandle;
+    Sec_KeyHandle* keyHandle;
 
     if (TestCreds::supports(CAPABILITY_DIGEST_OVER_HWKEY)) {
         if ((keyHandle = ctx.provisionKey(id, loc, key, TESTKC_RAW)) == nullptr) {

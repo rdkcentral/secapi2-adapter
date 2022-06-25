@@ -79,7 +79,8 @@ Sec_Result testBundleProvisionNoSha(SEC_OBJECTID id) {
 
     char file_name_verification[SEC_MAX_FILE_PATH_LEN];
     snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
-            "/tmp/sec_api_test_app/", id); SecUtils_RmFile(file_name_verification);
+            "/tmp/sec_api_test_app/", id);
+    SecUtils_RmFile(file_name_verification);
     if ((bundleHandle = ctx.getBundle(id)) == nullptr) {
         SEC_LOG_ERROR("ctx.getBundle failed");
         return SEC_RESULT_FAILURE;
