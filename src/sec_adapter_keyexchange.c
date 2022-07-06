@@ -258,7 +258,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
             DH* dh = DH_new();
 #if OPENSSL_VERSION_NUMBER >= 0x10100000
             if (DH_set0_pqg(dh, dh_p, NULL, dh_g) != 1) {
-                SEC_LOG_ERROR("BN_bin2bn failed");
+                SEC_LOG_ERROR("DH_set0_pqg failed");
                 BN_free(dh_pub_key);
                 BN_free(dh_p);
                 BN_free(dh_g);
@@ -267,7 +267,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
             }
 
             if (DH_set0_key(dh, dh_pub_key, NULL) != 1) {
-                SEC_LOG_ERROR("BN_bin2bn failed");
+                SEC_LOG_ERROR("DH_set0_key failed");
                 BN_free(dh_pub_key);
                 DH_free(dh);
                 return SEC_RESULT_FAILURE;

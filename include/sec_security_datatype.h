@@ -134,20 +134,20 @@ extern "C" {
 
 #if defined(BIT_64) && !defined(__APPLE__)
 #define SEC_OBJECTID_PATTERN "%016lx"
-#define SEC_KEY_FILENAME_PATTERN "%s%016lx.key"
-#define SEC_KEYINFO_FILENAME_PATTERN "%s%016lx.keyinfo"
-#define SEC_CERT_FILENAME_PATTERN "%s%016lx.cert"
-#define SEC_CERTINFO_FILENAME_PATTERN "%s%016lx.certinfo"
-#define SEC_BUNDLE_FILENAME_PATTERN "%s%016lx.bin"
-#define SEC_VERIFICATION_FILENAME_PATTERN "%s%016lx.sha"
+#define SEC_KEY_FILENAME_PATTERN "%016lx.key"
+#define SEC_KEYINFO_FILENAME_PATTERN "%016lx.keyinfo"
+#define SEC_CERT_FILENAME_PATTERN "%016lx.cert"
+#define SEC_CERTINFO_FILENAME_PATTERN "%016lx.certinfo"
+#define SEC_BUNDLE_FILENAME_PATTERN "%016lx.bin"
+#define SEC_VERIFICATION_FILENAME_PATTERN "%016lx.sha"
 #else
 #define SEC_OBJECTID_PATTERN "%016llx"
-#define SEC_KEY_FILENAME_PATTERN "%s%016llx.key"
-#define SEC_KEYINFO_FILENAME_PATTERN "%s%016llx.keyinfo"
-#define SEC_CERT_FILENAME_PATTERN "%s%016llx.cert"
-#define SEC_CERTINFO_FILENAME_PATTERN "%s%016llx.certinfo"
-#define SEC_BUNDLE_FILENAME_PATTERN "%s%016llx.bin"
-#define SEC_VERIFICATION_FILENAME_PATTERN "%s%016llx.sha"
+#define SEC_KEY_FILENAME_PATTERN "%016llx.key"
+#define SEC_KEYINFO_FILENAME_PATTERN "%016llx.keyinfo"
+#define SEC_CERT_FILENAME_PATTERN "%016llx.cert"
+#define SEC_CERTINFO_FILENAME_PATTERN "%016llx.certinfo"
+#define SEC_BUNDLE_FILENAME_PATTERN "%016llx.bin"
+#define SEC_VERIFICATION_FILENAME_PATTERN "%016llx.sha"
 #endif
 
 #define SEC_KEY_FILENAME_EXT ".key"

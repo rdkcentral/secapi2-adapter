@@ -651,7 +651,7 @@ Sec_Result Pubops_ExtractECCPubToPUBKEYDer(Sec_ECCRawPublicKey* eccRawPublicKey,
 
     *out = malloc(*outLength);
     if (*out == NULL) {
-        SEC_LOG_ERROR("i2d_EC_PUBKEY failed");
+        SEC_LOG_ERROR("malloc failed");
         EC_KEY_free(ec_key);
         return SEC_RESULT_FAILURE;
     }

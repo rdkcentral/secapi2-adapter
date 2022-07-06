@@ -1171,7 +1171,7 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
     /* file system */
     if (processorHandle->app_dir != NULL) {
         char file_name[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name, sizeof(file_name), SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir, object_id);
+        snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir, object_id);
         if (SecUtils_FileExists(file_name)) {
             SecUtils_RmFile(file_name);
             ++keys_found;
@@ -1181,14 +1181,14 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
         }
 
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_info, sizeof(file_name_info), SEC_KEYINFO_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
         if (!SecUtils_FileExists(file_name) && SecUtils_FileExists(file_name_info)) {
             SecUtils_RmFile(file_name_info);
         }
 
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
         if (!SecUtils_FileExists(file_name) && SecUtils_FileExists(file_name_verification)) {
             SecUtils_RmFile(file_name_verification);
@@ -2294,11 +2294,11 @@ static Sec_Result retrieve_key_data(Sec_ProcessorHandle* processorHandle, SEC_OB
     char* sec_dirs[] = {processorHandle->app_dir, processorHandle->global_dir};
     for (int i = 0; i < 2; i++) {
         if (sec_dirs[i] != NULL) {
-            snprintf(file_name_key, sizeof(file_name_key), SEC_KEY_FILENAME_PATTERN, sec_dirs[i],
+            snprintf(file_name_key, sizeof(file_name_key), "%s" SEC_KEY_FILENAME_PATTERN, sec_dirs[i],
                     object_id);
-            snprintf(file_name_info, sizeof(file_name_info), SEC_KEYINFO_FILENAME_PATTERN, sec_dirs[i],
+            snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN, sec_dirs[i],
                     object_id);
-            snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+            snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                     sec_dirs[i], object_id);
             if (SecUtils_FileExists(file_name_key) && SecUtils_FileExists(file_name_info)) {
                 if (SecUtils_ReadFile(file_name_key, keyData->key_container, sizeof(keyData->key_container),
@@ -2376,11 +2376,11 @@ static Sec_Result store_key_data(Sec_ProcessorHandle* processorHandle, Sec_Stora
         char file_name_key[SEC_MAX_FILE_PATH_LEN];
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_key, sizeof(file_name_key), SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_key, sizeof(file_name_key), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
-        snprintf(file_name_info, sizeof(file_name_info), SEC_KEYINFO_FILENAME_PATTERN,
+        snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
 
         if (SecUtils_WriteFile(file_name_key, key_data->key_container, key_data->kc_len) !=

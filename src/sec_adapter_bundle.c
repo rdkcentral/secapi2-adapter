@@ -62,9 +62,9 @@ static Sec_Result Sec_RetrieveBundleData(Sec_ProcessorHandle* processorHandle, S
     char* sec_dirs[] = {processorHandle->app_dir, processorHandle->global_dir};
     for (int i = 0; i < 2; i++) {
         if (sec_dirs[i] != NULL) {
-            snprintf(file_name_bundle, sizeof(file_name_bundle), SEC_BUNDLE_FILENAME_PATTERN, sec_dirs[i],
+            snprintf(file_name_bundle, sizeof(file_name_bundle), "%s" SEC_BUNDLE_FILENAME_PATTERN, sec_dirs[i],
                     object_id);
-            snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+            snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                     sec_dirs[i], object_id);
             if (SecUtils_FileExists(file_name_bundle)) {
                 if (SecUtils_ReadFile(file_name_bundle, bundleData->bundle, sizeof(bundleData->bundle),
@@ -127,9 +127,9 @@ static Sec_Result Sec_StoreBundleData(Sec_ProcessorHandle* processorHandle, SEC_
 
         char file_name_bundle[SEC_MAX_FILE_PATH_LEN];
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_bundle, sizeof(file_name_bundle), SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_bundle, sizeof(file_name_bundle), "%s" SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
 
         if (SecUtils_WriteFile(file_name_bundle, bundleData->bundle, bundleData->bundle_len) != SEC_RESULT_SUCCESS ||
@@ -260,7 +260,7 @@ Sec_Result SecBundle_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
     /* file system */
     if (processorHandle->app_dir != NULL) {
         char file_name_bundle[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_bundle, sizeof(file_name_bundle), SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_bundle, sizeof(file_name_bundle), "%s" SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
         if (SecUtils_FileExists(file_name_bundle)) {
             SecUtils_RmFile(file_name_bundle);
@@ -271,7 +271,7 @@ Sec_Result SecBundle_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
         }
 
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
         if (!SecUtils_FileExists(file_name_bundle) && SecUtils_FileExists(file_name_verification))
             SecUtils_RmFile(file_name_verification);
