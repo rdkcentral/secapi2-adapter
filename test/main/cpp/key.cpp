@@ -326,7 +326,7 @@ Sec_Result testKeyNoSha(SEC_OBJECTID id, TestKey key, TestKc kc) {
     ctx.releaseKey(keyHandle);
 
     char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-    snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+    snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
             "/tmp/sec_api_test_app/", id);
     SecUtils_RmFile(file_name_verification);
     if (ctx.getKey(id) != nullptr) {

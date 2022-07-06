@@ -103,7 +103,7 @@ add_library(sec_api SHARED
 set_target_properties(sec_api PROPERTIES
         LINKER_LANGUAGE C
         SO_VERSION 2.3
-        VERSION 2.3.2.4
+        VERSION 2.3.2.25
         )
 
 target_link_libraries(sec_api
@@ -156,7 +156,13 @@ target_link_libraries(sec_api_2_adapter_test
         ${YAJL_LIBRARY}
         )
 
-add_test(sec_api2_adapter_test sec_api_utest_main)
+add_custom_command(
+        TARGET sec_api_2_adapter_test POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/root_keystore.p12
+        ${CMAKE_CURRENT_BINARY_DIR}/root_keystore.p12)
+
+add_test(sec_api_2_adapter_test sec_api_2_adapter_test)
 
 target_clangformat_setup(sec_api_2_adapter_test)
 

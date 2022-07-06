@@ -71,11 +71,11 @@ static Sec_Result Sec_RetrieveCertificateData(Sec_ProcessorHandle* processorHand
     char* sec_dirs[] = {processorHandle->app_dir, processorHandle->global_dir};
     for (int i = 0; i < 2; i++) {
         if (sec_dirs[i] != NULL) {
-            snprintf(file_name_cert, sizeof(file_name_cert), SEC_CERT_FILENAME_PATTERN, sec_dirs[i],
+            snprintf(file_name_cert, sizeof(file_name_cert), "%s" SEC_CERT_FILENAME_PATTERN, sec_dirs[i],
                     object_id);
-            snprintf(file_name_info, sizeof(file_name_info), SEC_CERTINFO_FILENAME_PATTERN, sec_dirs[i],
+            snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_CERTINFO_FILENAME_PATTERN, sec_dirs[i],
                     object_id);
-            snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+            snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                     sec_dirs[i], object_id);
             if (SecUtils_FileExists(file_name_cert) && SecUtils_FileExists(file_name_info)) {
                 if (SecUtils_ReadFile(file_name_cert, certData->cert, sizeof(certData->cert), &certData->cert_len) !=
@@ -228,11 +228,11 @@ static Sec_Result Sec_StoreCertificateData(Sec_ProcessorHandle* processorHandle,
         char file_name_cert[SEC_MAX_FILE_PATH_LEN];
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_cert, sizeof(file_name_cert), SEC_CERT_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_cert, sizeof(file_name_cert), "%s" SEC_CERT_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
-        snprintf(file_name_info, sizeof(file_name_info), SEC_CERTINFO_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_CERTINFO_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
 
         if (SecUtils_WriteFile(file_name_cert, certData->cert, certData->cert_len) != SEC_RESULT_SUCCESS ||
@@ -366,7 +366,7 @@ Sec_Result SecCertificate_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJEC
     /* app_dir */
     if (processorHandle->app_dir != NULL) {
         char file_name[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name, sizeof(file_name), SEC_CERT_FILENAME_PATTERN, processorHandle->app_dir, object_id);
+        snprintf(file_name, sizeof(file_name), "%s" SEC_CERT_FILENAME_PATTERN, processorHandle->app_dir, object_id);
         if (SecUtils_FileExists(file_name)) {
             SecUtils_RmFile(file_name);
             ++certs_found;
@@ -376,14 +376,14 @@ Sec_Result SecCertificate_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJEC
         }
 
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_info, sizeof(file_name_info), SEC_CERTINFO_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_CERTINFO_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
         if (!SecUtils_FileExists(file_name) && SecUtils_FileExists(file_name_info)) {
             SecUtils_RmFile(file_name_info);
         }
 
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
         if (!SecUtils_FileExists(file_name) && SecUtils_FileExists(file_name_verification))
             SecUtils_RmFile(file_name_verification);

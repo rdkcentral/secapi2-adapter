@@ -19,8 +19,8 @@
 #ifndef SEC_SECURITY_UTILS_H_
 #define SEC_SECURITY_UTILS_H_
 
-#include "sec_security_store.h"
 #include "sec_security.h"
+#include "sec_security_store.h"
 #include <dirent.h>
 #include <fcntl.h>
 #include <libgen.h>
@@ -167,11 +167,13 @@ Sec_Result SecUtils_Base64Decode(const SEC_BYTE* input, SEC_SIZE in_len, SEC_BYT
  */
 Sec_Result SecUtils_ECCToPrivBinary(EC_KEY* ec_key, Sec_ECCRawPrivateKey* binary);
 
+Sec_Result SecUtils_ECCToDERPrivKeyInfo(EC_KEY* ec_key, SEC_BYTE* output, SEC_SIZE out_len, SEC_SIZE* written);
+
 RSA* SecUtils_RSAFromDERPriv(const SEC_BYTE* der, SEC_SIZE der_len);
 
 Sec_Result SecUtils_RSAToDERPrivKeyInfo(RSA* rsa, SEC_BYTE* output, SEC_SIZE out_len, SEC_SIZE* written);
 
-Sec_Result SecUtils_WrapSymetric(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID wrappingKey,
+Sec_Result SecUtils_WrapSymmetric(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID wrappingKey,
         Sec_CipherAlgorithm wrappingAlg, SEC_BYTE* iv, SEC_BYTE* payload, SEC_SIZE payloadLen, SEC_BYTE* out,
         SEC_SIZE out_len, SEC_SIZE* written);
 

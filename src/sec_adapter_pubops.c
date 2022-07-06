@@ -627,3 +627,43 @@ Sec_Result Pubops_HMAC(Sec_MacAlgorithm alg, SEC_BYTE* key, SEC_SIZE key_len, SE
 
     return SEC_RESULT_SUCCESS;
 }
+
+Sec_Result Pubops_ExtractECCPubToPUBKEYDer(Sec_ECCRawPublicKey* eccRawPublicKey, SEC_BYTE** out, SEC_SIZE* outLength) {
+
+    size_t temp_ec_public_length = Sec_BEBytesToUint32(eccRawPublicKey->key_len);
+    SEC_BYTE temp_ec_public[temp_ec_public_length * 2 + 1];
+    temp_ec_public[0] = POINT_CONVERSION_UNCOMPRESSED;
+    memcpy(temp_ec_public + 1, eccRawPublicKey->x, temp_ec_public_length);
+    memcpy(temp_ec_public + 1 + temp_ec_public_length, eccRawPublicKey->y, temp_ec_public_length);
+    const unsigned char* p_temp_ec_public = temp_ec_public;
+    EC_KEY* ec_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+    if (o2i_ECPublicKey(&ec_key, &p_temp_ec_public, (long) temp_ec_public_length * 2 + 1) == NULL) {
+        SEC_LOG_ERROR("o2i_ECPublicKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    *outLength = i2d_EC_PUBKEY(ec_key, NULL);
+    if (outLength <= 0) {
+        EC_KEY_free(ec_key);
+        SEC_LOG_ERROR("i2d_EC_PUBKEY failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    *out = malloc(*outLength);
+    if (*out == NULL) {
+        SEC_LOG_ERROR("malloc failed");
+        EC_KEY_free(ec_key);
+        return SEC_RESULT_FAILURE;
+    }
+
+    unsigned char* p_other_public = *out;
+    *outLength = i2d_EC_PUBKEY(ec_key, &p_other_public);
+    EC_KEY_free(ec_key);
+    if (*outLength <= 0) {
+        SEC_LOG_ERROR("i2d_EC_PUBKEY failed");
+        free(*out);
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}

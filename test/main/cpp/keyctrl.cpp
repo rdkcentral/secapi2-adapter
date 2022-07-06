@@ -651,7 +651,7 @@ Sec_Result testKeyCtrlExportEcc(TestKc kc) {
     TestKey priv = TESTKEY_EC_PRIV;
     std::vector<SEC_BYTE> clear = TestCtx::random(32);
     std::vector<SEC_BYTE> derivation_input = TestCtx::random(16);
-    SEC_BYTE exported_buffer[1024];
+    SEC_BYTE exported_buffer[2000];
     std::vector<SEC_BYTE> signature;
     signature.resize(512);
     SEC_SIZE exported_size = 0;

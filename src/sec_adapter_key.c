@@ -173,6 +173,10 @@ Sec_KeyType SecKey_GetKeyTypeForClearKeyContainer(Sec_KeyContainer kc) {
         case SEC_KEYCONTAINER_DER_ECC_NISTP256_PUBLIC:
             return SEC_KEYTYPE_ECC_NISTP256_PUBLIC;
 
+        case SEC_KEYCONTAINER_PKCS8:
+            // Return something valid since we don't know the actual key type.
+            return SEC_KEYTYPE_RSA_1024;
+
         default:
             return SEC_KEYTYPE_NUM;
     }
@@ -416,7 +420,7 @@ Sec_Result SecKey_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID
     SEC_FREE(key_data);
     SEC_FREE(key_buffer);
     if (result != SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("import_key failed");
+        SEC_LOG_ERROR("process_key_container failed");
         return result;
     }
 
@@ -523,13 +527,8 @@ Sec_Result SecKey_ExtractECCPublicKey(Sec_KeyHandle* keyHandle, Sec_ECCRawPublic
             }
 
             sa_status status = sa_key_get_public(out, &out_len, keyHandle->key.handle);
-            if (status == SA_STATUS_OK) {
-                size_t key_length = out_len / 2;
-                Sec_Uint32ToBEBytes(key_length, public_key->key_len);
-                memcpy(public_key->x, out, key_length);
-                memcpy(public_key->y, out + key_length, key_length);
-                public_key->type = SEC_KEYTYPE_ECC_NISTP256_PUBLIC;
-            }
+            if (status == SA_STATUS_OK)
+                Pubops_ExtractECCPubFromPUBKEYDer(out, out_len, public_key);
 
             SEC_FREE(out);
             CHECK_STATUS(status)
@@ -704,7 +703,7 @@ Sec_Result SecKey_Derive_PBEKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJECT
     SEC_BYTE loop[] = {0, 0, 0, 0};
     SEC_BYTE out_key[SEC_AES_KEY_MAX_LEN];
 
-    if (!SecKey_IsSymetric(type_derived)) {
+    if (!SecKey_IsSymmetric(type_derived)) {
         SEC_LOG_ERROR("Only symmetric keys can be derived");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -954,8 +953,8 @@ Sec_Result SecKey_ECDHKeyAgreementWithKDF(Sec_KeyHandle* keyHandle, Sec_ECCRawPu
         return SEC_RESULT_INVALID_PARAMETERS;
     }
 
-    if (!SecKey_IsSymetric(type_derived)) {
-        SEC_LOG_ERROR("Can only derive symetric keys");
+    if (!SecKey_IsSymmetric(type_derived)) {
+        SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
 
@@ -964,13 +963,16 @@ Sec_Result SecKey_ECDHKeyAgreementWithKDF(Sec_KeyHandle* keyHandle, Sec_ECCRawPu
     sa_rights rights;
     rights_set_allow_all(&rights, type_derived);
 
-    size_t other_public_length = Sec_BEBytesToUint32(otherPublicKey->key_len);
-    SEC_BYTE other_public[other_public_length * 2];
-    memcpy(other_public, otherPublicKey->x, other_public_length);
-    memcpy(other_public + other_public_length, otherPublicKey->y, other_public_length);
+    SEC_BYTE* other_public;
+    SEC_SIZE other_public_length;
+    if (Pubops_ExtractECCPubToPUBKEYDer(otherPublicKey, &other_public, &other_public_length) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Can only derive symmetric keys");
+        return SEC_RESULT_FAILURE;
+    }
 
     sa_status status = sa_key_exchange(&shared_secret, &rights, SA_KEY_EXCHANGE_ALGORITHM_ECDH,
-            keyHandle->key.handle, other_public, other_public_length * 2, NULL);
+            keyHandle->key.handle, other_public, other_public_length, NULL);
+    free(other_public);
     CHECK_STATUS(status)
 
     // Derive the key from the shared secret using a key derivation algorithm.
@@ -1169,7 +1171,7 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
     /* file system */
     if (processorHandle->app_dir != NULL) {
         char file_name[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name, sizeof(file_name), SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir, object_id);
+        snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir, object_id);
         if (SecUtils_FileExists(file_name)) {
             SecUtils_RmFile(file_name);
             ++keys_found;
@@ -1179,14 +1181,14 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
         }
 
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_info, sizeof(file_name_info), SEC_KEYINFO_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
         if (!SecUtils_FileExists(file_name) && SecUtils_FileExists(file_name_info)) {
             SecUtils_RmFile(file_name_info);
         }
 
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
         if (!SecUtils_FileExists(file_name) && SecUtils_FileExists(file_name_verification)) {
             SecUtils_RmFile(file_name_verification);
@@ -1300,7 +1302,7 @@ Sec_KeyType SecKey_GetRSAKeyTypeForByteLength(int numBytes) {
  *
  * @return 1 if key type is symmetric, 0 if asymmetric.
  */
-SEC_BOOL SecKey_IsSymetric(Sec_KeyType type) {
+SEC_BOOL SecKey_IsSymmetric(Sec_KeyType type) {
     switch (type) {
         case SEC_KEYTYPE_AES_128:
         case SEC_KEYTYPE_AES_256:
@@ -1519,13 +1521,11 @@ Sec_KeyContainer SecKey_GetClearContainer(Sec_KeyType key_type) {
             return SEC_KEYCONTAINER_RAW_HMAC_256;
 
         case SEC_KEYTYPE_RSA_1024:
-            return SEC_KEYCONTAINER_DER_RSA_1024;
-
         case SEC_KEYTYPE_RSA_2048:
-            return SEC_KEYCONTAINER_DER_RSA_2048;
-
         case SEC_KEYTYPE_RSA_3072:
-            return SEC_KEYCONTAINER_DER_RSA_3072;
+        case SEC_KEYTYPE_ECC_NISTP256:
+        case SEC_KEYTYPE_ECC_NISTP256_PUBLIC:
+            return SEC_KEYCONTAINER_PKCS8;
 
         case SEC_KEYTYPE_RSA_1024_PUBLIC:
             return SEC_KEYCONTAINER_DER_RSA_1024_PUBLIC;
@@ -1535,12 +1535,6 @@ Sec_KeyContainer SecKey_GetClearContainer(Sec_KeyType key_type) {
 
         case SEC_KEYTYPE_RSA_3072_PUBLIC:
             return SEC_KEYCONTAINER_DER_RSA_3072_PUBLIC;
-
-        case SEC_KEYTYPE_ECC_NISTP256:
-            return SEC_KEYCONTAINER_RAW_ECC_PRIVONLY_NISTP256;
-
-        case SEC_KEYTYPE_ECC_NISTP256_PUBLIC:
-            return SEC_KEYCONTAINER_DER_ECC_NISTP256_PUBLIC;
 
         default:
             return SEC_KEYCONTAINER_NUM;
@@ -2137,10 +2131,7 @@ Sec_Result prepare_and_store_key_data(Sec_ProcessorHandle* processorHandle, Sec_
         case SEC_KEYCONTAINER_RAW_HMAC_128:
         case SEC_KEYCONTAINER_RAW_HMAC_160:
         case SEC_KEYCONTAINER_RAW_HMAC_256:
-        case SEC_KEYCONTAINER_DER_RSA_1024:
-        case SEC_KEYCONTAINER_DER_RSA_2048:
-        case SEC_KEYCONTAINER_DER_RSA_3072:
-        case SEC_KEYCONTAINER_RAW_ECC_PRIVONLY_NISTP256:
+        case SEC_KEYCONTAINER_PKCS8:
         case SEC_KEYCONTAINER_SOC:
             key_data->info.kc_type = SEC_KEYCONTAINER_EXPORTED;
             result = export_key(key, NULL, key_data->key_container, SEC_KEYCONTAINER_MAX_LEN, &key_data->kc_len);
@@ -2303,11 +2294,11 @@ static Sec_Result retrieve_key_data(Sec_ProcessorHandle* processorHandle, SEC_OB
     char* sec_dirs[] = {processorHandle->app_dir, processorHandle->global_dir};
     for (int i = 0; i < 2; i++) {
         if (sec_dirs[i] != NULL) {
-            snprintf(file_name_key, sizeof(file_name_key), SEC_KEY_FILENAME_PATTERN, sec_dirs[i],
+            snprintf(file_name_key, sizeof(file_name_key), "%s" SEC_KEY_FILENAME_PATTERN, sec_dirs[i],
                     object_id);
-            snprintf(file_name_info, sizeof(file_name_info), SEC_KEYINFO_FILENAME_PATTERN, sec_dirs[i],
+            snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN, sec_dirs[i],
                     object_id);
-            snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+            snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                     sec_dirs[i], object_id);
             if (SecUtils_FileExists(file_name_key) && SecUtils_FileExists(file_name_info)) {
                 if (SecUtils_ReadFile(file_name_key, keyData->key_container, sizeof(keyData->key_container),
@@ -2385,11 +2376,11 @@ static Sec_Result store_key_data(Sec_ProcessorHandle* processorHandle, Sec_Stora
         char file_name_key[SEC_MAX_FILE_PATH_LEN];
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_key, sizeof(file_name_key), SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+        snprintf(file_name_key, sizeof(file_name_key), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
-        snprintf(file_name_info, sizeof(file_name_info), SEC_KEYINFO_FILENAME_PATTERN,
+        snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
-        snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+        snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
 
         if (SecUtils_WriteFile(file_name_key, key_data->key_container, key_data->kc_len) !=
@@ -2470,7 +2461,7 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
 
             memmove(key_buffer, p_data, *key_length);
             key_format = SA_KEY_FORMAT_SYMMETRIC_BYTES;
-            rights_set_allow_all(&rights, SecKey_GetKeyTypeForClearKeyContainer(*out_key_container));
+            rights_set_allow_all(&rights, key_type);
             symmetric_parameters.rights = &rights;
             parameters = &symmetric_parameters;
             break;
@@ -2484,13 +2475,14 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
         case SEC_KEYCONTAINER_PEM_RSA_1024:
         case SEC_KEYCONTAINER_PEM_RSA_2048:
         case SEC_KEYCONTAINER_PEM_RSA_3072:
+            key_type = SecKey_GetKeyTypeForClearKeyContainer(*out_key_container);
             result = process_rsa_key_container(*out_key_container, p_data, *key_length, key_buffer, key_length,
                     out_key_container);
             if (result != SEC_RESULT_SUCCESS)
                 return result;
 
             key_format = SA_KEY_FORMAT_RSA_PRIVATE_KEY_INFO;
-            rights_set_allow_all(&rights, SecKey_GetKeyTypeForClearKeyContainer(*out_key_container));
+            rights_set_allow_all(&rights, key_type);
             rsa_parameters.rights = &rights;
             parameters = &rsa_parameters;
             break;
@@ -2516,13 +2508,14 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
         case SEC_KEYCONTAINER_RAW_ECC_NISTP256:
         case SEC_KEYCONTAINER_RAW_ECC_PRIVONLY_NISTP256:
         case SEC_KEYCONTAINER_PEM_ECC_NISTP256:
+            key_type = SecKey_GetKeyTypeForClearKeyContainer(*out_key_container);
             result = process_ec_key_container(*out_key_container, p_data, *key_length, key_buffer, key_length,
                     out_key_container);
             if (result != SEC_RESULT_SUCCESS)
                 return result;
 
             key_format = SA_KEY_FORMAT_EC_PRIVATE_BYTES;
-            rights_set_allow_all(&rights, SecKey_GetKeyTypeForClearKeyContainer(*out_key_container));
+            rights_set_allow_all(&rights, key_type);
             ec_parameters.rights = &rights;
             ec_parameters.curve = SA_ELLIPTIC_CURVE_NIST_P256;
             parameters = &ec_parameters;
@@ -2739,10 +2732,26 @@ static Sec_Result process_rsa_key_container(Sec_KeyContainer in_key_container, S
         return SEC_RESULT_INVALID_PARAMETERS;
     }
 
-    *out_key_container = convert_key_container(in_key_container);
+    *out_key_container = SEC_KEYCONTAINER_PKCS8;
     unsigned char* p_data = key_buffer;
-    *key_length = i2d_RSAPrivateKey(rsa, &p_data);
-    SEC_RSA_FREE(rsa);
+    EVP_PKEY* evp_pkey = EVP_PKEY_new();
+    if (evp_pkey == NULL) {
+        SEC_RSA_FREE(rsa);
+        SEC_LOG_ERROR("EVP_PKEY_new failed");
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
+    if (EVP_PKEY_assign(evp_pkey, EVP_PKEY_RSA, rsa) != 1) {
+        SEC_RSA_FREE(rsa);
+        EVP_PKEY_free(evp_pkey);
+        SEC_LOG_ERROR("EVP_PKEY_assign failed");
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
+    PKCS8_PRIV_KEY_INFO* private_key = EVP_PKEY2PKCS8(evp_pkey);
+    *key_length = i2d_PKCS8_PRIV_KEY_INFO(private_key, &p_data);
+    EVP_PKEY_free(evp_pkey);
+    PKCS8_PRIV_KEY_INFO_free(private_key);
     if (*key_length <= 0) {
         SEC_LOG_ERROR("Invalid RSA key container");
         return SEC_RESULT_INVALID_PARAMETERS;
@@ -2841,17 +2850,16 @@ static Sec_Result process_rsa_public_key_container(Sec_KeyContainer in_key_conta
 
 static Sec_Result process_ec_key_container(Sec_KeyContainer in_key_container, SEC_BYTE* data,
         SEC_SIZE data_length, unsigned char* key_buffer, SEC_SIZE* key_length, Sec_KeyContainer* out_key_container) {
+    EC_KEY* ec_key = NULL;
     switch (in_key_container) {
         case SEC_KEYCONTAINER_DER_ECC_NISTP256: {
             const unsigned char* p_der = data;
-            EC_KEY* ec_key = d2i_ECPrivateKey(NULL, &p_der, data_length);
+            ec_key = d2i_ECPrivateKey(NULL, &p_der, data_length);
             if (ec_key == NULL) {
                 SEC_LOG_ERROR("Invalid ECC key container");
                 return SEC_RESULT_INVALID_PARAMETERS;
             }
 
-            *key_length = BN_bn2bin(EC_KEY_get0_private_key(ec_key), key_buffer);
-            SEC_ECC_FREE(ec_key);
             break;
         }
         case SEC_KEYCONTAINER_RAW_ECC_NISTP256: {
@@ -2868,8 +2876,21 @@ static Sec_Result process_ec_key_container(Sec_KeyContainer in_key_container, SE
                 return SEC_RESULT_INVALID_PARAMETERS;
             }
 
-            memcpy(key_buffer, rawPrivateKey->prv, SEC_ECC_NISTP256_KEY_LEN);
-            *key_length = SEC_ECC_NISTP256_KEY_LEN;
+            ec_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+            BIGNUM* private_key_bn = BN_bin2bn(rawPrivateKey->prv, (int) Sec_BEBytesToUint32(rawPrivateKey->key_len),
+                    NULL);
+            if (private_key_bn == NULL) {
+                EC_KEY_free(ec_key);
+                SEC_LOG_ERROR("Invalid ECC key container");
+                return SEC_RESULT_INVALID_PARAMETERS;
+            }
+
+            if (EC_KEY_set_private_key(ec_key, private_key_bn) != 1) {
+                EC_KEY_free(ec_key);
+                SEC_LOG_ERROR("Invalid ECC key container");
+                return SEC_RESULT_INVALID_PARAMETERS;
+            }
+
             break;
         }
         case SEC_KEYCONTAINER_RAW_ECC_PRIVONLY_NISTP256: {
@@ -2880,28 +2901,64 @@ static Sec_Result process_ec_key_container(Sec_KeyContainer in_key_container, SE
                 return SEC_RESULT_INVALID_PARAMETERS;
             }
 
-            memcpy(key_buffer, ((Sec_ECCRawOnlyPrivateKey*) data)->prv, SEC_ECC_NISTP256_KEY_LEN);
-            *key_length = SEC_ECC_NISTP256_KEY_LEN;
+            Sec_ECCRawOnlyPrivateKey* rawPrivateKey = (Sec_ECCRawOnlyPrivateKey*) data;
+
+            ec_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+            BIGNUM* private_key_bn = BN_bin2bn(rawPrivateKey->prv, SEC_ECC_NISTP256_KEY_LEN, NULL);
+            if (private_key_bn == NULL) {
+                EC_KEY_free(ec_key);
+                SEC_LOG_ERROR("Invalid ECC key container");
+                return SEC_RESULT_INVALID_PARAMETERS;
+            }
+
+            if (EC_KEY_set_private_key(ec_key, private_key_bn) != 1) {
+                EC_KEY_free(ec_key);
+                SEC_LOG_ERROR("Invalid ECC key container");
+                return SEC_RESULT_INVALID_PARAMETERS;
+            }
+
             break;
         }
         case SEC_KEYCONTAINER_PEM_ECC_NISTP256: {
             BIO* bio = BIO_new_mem_buf(data, (int) data_length);
-            EC_KEY* ec_key = PEM_read_bio_ECPrivateKey(bio, &ec_key, disable_passphrase_prompt, NULL);
+            ec_key = PEM_read_bio_ECPrivateKey(bio, &ec_key, disable_passphrase_prompt, NULL);
             SEC_BIO_FREE(bio);
             if (ec_key == NULL) {
                 SEC_LOG_ERROR("Invalid ECC key container");
                 return SEC_RESULT_INVALID_PARAMETERS;
             }
 
-            *key_length = BN_bn2bin(EC_KEY_get0_private_key(ec_key), key_buffer);
-            SEC_ECC_FREE(ec_key);
             break;
         }
         default:
             return SEC_RESULT_FAILURE;
     }
 
-    *out_key_container = convert_key_container(in_key_container);
+    *out_key_container = SEC_KEYCONTAINER_PKCS8;
+    unsigned char* p_data = key_buffer;
+    EVP_PKEY* evp_pkey = EVP_PKEY_new();
+    if (evp_pkey == NULL) {
+        SEC_ECC_FREE(ec_key);
+        SEC_LOG_ERROR("EVP_PKEY_new failed");
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
+    if (EVP_PKEY_assign(evp_pkey, EVP_PKEY_EC, ec_key) != 1) {
+        SEC_ECC_FREE(ec_key);
+        EVP_PKEY_free(evp_pkey);
+        SEC_LOG_ERROR("EVP_PKEY_assign failed");
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
+    PKCS8_PRIV_KEY_INFO* private_key = EVP_PKEY2PKCS8(evp_pkey);
+    *key_length = i2d_PKCS8_PRIV_KEY_INFO(private_key, &p_data);
+    EVP_PKEY_free(evp_pkey);
+    PKCS8_PRIV_KEY_INFO_free(private_key);
+    if (*key_length <= 0) {
+        SEC_LOG_ERROR("Invalid EC key container");
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
     return SEC_RESULT_SUCCESS;
 }
 
@@ -3012,7 +3069,7 @@ static Sec_KeyContainer convert_key_container(Sec_KeyContainer key_container) {
         case SEC_KEYCONTAINER_RAW_ECC_NISTP256:
         case SEC_KEYCONTAINER_PEM_ECC_NISTP256:
         case SEC_KEYCONTAINER_RAW_ECC_PRIVONLY_NISTP256:
-            return SEC_KEYCONTAINER_RAW_ECC_PRIVONLY_NISTP256;
+            return SEC_KEYCONTAINER_DER_ECC_NISTP256;
 
         case SEC_KEYCONTAINER_RAW_ECC_NISTP256_PUBLIC:
         case SEC_KEYCONTAINER_PEM_ECC_NISTP256_PUBLIC:
@@ -3222,7 +3279,7 @@ static Sec_Result derive_hkdf(Sec_MacAlgorithm macAlgorithm, Sec_KeyType typeDer
         return SEC_RESULT_FAILURE;
     }
 
-    if (!SecKey_IsSymetric(typeDerived)) {
+    if (!SecKey_IsSymmetric(typeDerived)) {
         SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -3253,7 +3310,7 @@ static Sec_Result derive_kdf_concat(Sec_DigestAlgorithm digestAlgorithm, Sec_Key
         return SEC_RESULT_FAILURE;
     }
 
-    if (!SecKey_IsSymetric(typeDerived)) {
+    if (!SecKey_IsSymmetric(typeDerived)) {
         SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -3276,7 +3333,7 @@ static Sec_Result derive_kdf_concat(Sec_DigestAlgorithm digestAlgorithm, Sec_Key
 
 static Sec_Result derive_kdf_cmac(Sec_KeyType typeDerived, const SEC_BYTE* otherData, SEC_SIZE otherDataSize,
         const SEC_BYTE* counter, SEC_SIZE counterSize, sa_key baseKey, sa_key* derived_key) {
-    if (!SecKey_IsSymetric(typeDerived)) {
+    if (!SecKey_IsSymmetric(typeDerived)) {
         SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }

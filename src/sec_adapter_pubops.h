@@ -39,6 +39,8 @@ Sec_Result Pubops_ExtractRSAPubFromPUBKEYDer(SEC_BYTE* cert, SEC_SIZE cert_len, 
 
 Sec_Result Pubops_ExtractECCPubFromPUBKEYDer(SEC_BYTE* cert, SEC_SIZE cert_len, Sec_ECCRawPublicKey* pub);
 
+Sec_Result Pubops_ExtractECCPubToPUBKEYDer(Sec_ECCRawPublicKey* eccRawPublicKey, SEC_BYTE** out, SEC_SIZE* outLength);
+
 Sec_Result Pubops_VerifyWithPubRsa(RSA* rsa, Sec_SignatureAlgorithm alg, SEC_BYTE* digest, SEC_SIZE digest_len,
         SEC_BYTE* sig, SEC_SIZE sig_len, int salt_len);
 

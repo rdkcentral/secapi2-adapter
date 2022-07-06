@@ -139,18 +139,17 @@ ProvKey* TestCreds::getSocKey(TestKey key, SEC_OBJECTID id) {
                 return nullptr;
             }
 
-            Sec_ECCRawPrivateKey ec_bin;
-            if (SecUtils_ECCToPrivBinary(ec_key, &ec_bin) != SEC_RESULT_SUCCESS) {
+            SEC_SIZE written;
+            key_clear.resize(SEC_KEYCONTAINER_MAX_LEN);
+            if (SecUtils_ECCToDERPrivKeyInfo(ec_key, &key_clear[0], key_clear.size(), &written) != SEC_RESULT_SUCCESS) {
                 SEC_LOG_ERROR("SecUtils_ECCToPrivBinary failed");
                 SEC_ECC_FREE(ec_key);
                 delete pk;
                 return nullptr;
             }
 
+            key_clear.resize(written);
             SEC_ECC_FREE(ec_key);
-
-            key_clear.resize(SEC_ECC_NISTP256_KEY_LEN);
-            memcpy(&key_clear[0], &ec_bin.prv[0], SEC_ECC_NISTP256_KEY_LEN);
             key_type = "ECC-P256";
         } break;
 

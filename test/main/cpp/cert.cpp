@@ -103,7 +103,7 @@ Sec_Result testCertExportNoSha(SEC_OBJECTID id, TestCert cert) {
     ctx.releaseCert(certificateHandle);
 
     char file_name_verification[SEC_MAX_FILE_PATH_LEN];
-    snprintf(file_name_verification, sizeof(file_name_verification), SEC_VERIFICATION_FILENAME_PATTERN,
+    snprintf(file_name_verification, sizeof(file_name_verification), "%s" SEC_VERIFICATION_FILENAME_PATTERN,
             "/tmp/sec_api_test_app/", id);
     SecUtils_RmFile(file_name_verification);
     if ((certificateHandle = ctx.getCert(id)) == nullptr) {
@@ -207,7 +207,7 @@ Sec_Result testCertSignWithPkcs7(SEC_OBJECTID id_cert, TestCert cert, SEC_OBJECT
 
     X509* x509Cert = nullptr;
     RSA* rsa;
-    EVP_PKEY* evp;
+    EVP_PKEY* evp = nullptr;
     BIO* bio = nullptr;
     BIO* out = nullptr;
     PKCS7* pkcs7 = nullptr;
@@ -219,7 +219,19 @@ Sec_Result testCertSignWithPkcs7(SEC_OBJECTID id_cert, TestCert cert, SEC_OBJECT
 
     do {
         rsa = SecKey_ToEngineRSAWithCert(keyHandle, certificateHandle);
+        if (rsa == nullptr) {
+            SEC_LOG_ERROR("SecKey_ToEngineRSAWithCert failed");
+            result = SEC_RESULT_FAILURE;
+            break;
+        }
+
         evp = EVP_PKEY_new();
+        if (evp == nullptr) {
+            SEC_LOG_ERROR("EVP_PKEY_new failed");
+            result = SEC_RESULT_FAILURE;
+            break;
+        }
+
         if (EVP_PKEY_assign(evp, EVP_PKEY_RSA, rsa) != 1) {
             SEC_LOG_ERROR("EVP_PKEY_assign failed");
             result = SEC_RESULT_FAILURE;

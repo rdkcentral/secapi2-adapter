@@ -29,4 +29,9 @@ struct Sec_OpaqueBufferHandle_struct {
     size_t size;
 };
 
+typedef struct {
+    size_t offset_in_src;
+    size_t offset_in_target;
+    size_t bytes_to_copy;
+} SEC_CopyIndex;
 #endif // SEC_SECURITY_SVP_H

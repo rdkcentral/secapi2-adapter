@@ -1042,6 +1042,26 @@ Sec_Result get_cipher_algorithm(const Sec_CipherAlgorithm algorithm, SEC_BOOL is
 
         case SEC_CIPHERALGORITHM_RSA_OAEP_PADDING:
             *cipher_algorithm = SA_CIPHER_ALGORITHM_RSA_OAEP;
+            if (is_unwrap) {
+                *parameters = calloc(1, sizeof(sa_unwrap_parameters_rsa_oaep));
+                if (parameters == NULL)
+                    return SEC_RESULT_FAILURE;
+
+                ((sa_unwrap_parameters_rsa_oaep*) *parameters)->digest_algorithm = SA_DIGEST_ALGORITHM_SHA1;
+                ((sa_unwrap_parameters_rsa_oaep*) *parameters)->mgf1_digest_algorithm = SA_DIGEST_ALGORITHM_SHA1;
+                ((sa_unwrap_parameters_rsa_oaep*) *parameters)->label = NULL;
+                ((sa_unwrap_parameters_rsa_oaep*) *parameters)->label_length = 0;
+            } else {
+                *parameters = calloc(1, sizeof(sa_cipher_parameters_rsa_oaep));
+                if (parameters == NULL)
+                    return SEC_RESULT_FAILURE;
+
+                ((sa_cipher_parameters_rsa_oaep*) *parameters)->digest_algorithm = SA_DIGEST_ALGORITHM_SHA1;
+                ((sa_cipher_parameters_rsa_oaep*) *parameters)->mgf1_digest_algorithm = SA_DIGEST_ALGORITHM_SHA1;
+                ((sa_cipher_parameters_rsa_oaep*) *parameters)->label = NULL;
+                ((sa_cipher_parameters_rsa_oaep*) *parameters)->label_length = 0;
+            }
+
             return SEC_RESULT_SUCCESS;
 
         case SEC_CIPHERALGORITHM_ECC_ELGAMAL:

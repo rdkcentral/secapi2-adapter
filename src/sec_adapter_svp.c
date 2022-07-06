@@ -80,8 +80,8 @@ Sec_Result SecOpaqueBuffer_Write(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC
         return SEC_RESULT_FAILURE;
     }
 
-    size_t out_offset = offset;
-    sa_status status = sa_svp_buffer_write((*opaqueBufferHandle).svp_buffer, &out_offset, data, length);
+    sa_svp_offset svp_offset = {offset, 0, length};
+    sa_status status = sa_svp_buffer_write((*opaqueBufferHandle).svp_buffer, data, length, &svp_offset, 1);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -107,10 +107,9 @@ Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, S
         return SEC_RESULT_FAILURE;
     }
 
-    size_t out_off = out_offset;
-    size_t in_off = in_offset;
-    sa_status status = sa_svp_buffer_copy(outOpaqueBufferHandle->svp_buffer, &out_off, inOpaqueBufferHandle->svp_buffer,
-            &in_off, num_to_copy);
+    sa_svp_offset svp_offset = {out_offset, in_offset, num_to_copy};
+    sa_status status = sa_svp_buffer_copy(outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer,
+            &svp_offset, 1);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -168,4 +167,31 @@ Sec_Result SecCodeIntegrity_SecureBootEnabled(void) {
 
 Sec_Result SecSVP_SetTime(time_t time) {
     return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecOpaqueBuffer_CopyByIndex(Sec_OpaqueBufferHandle* outOpaqueBufferHandle,
+        Sec_OpaqueBufferHandle* inOpaqueBufferHandle, SEC_CopyIndex* copyIndexArray, SEC_SIZE numOfIndexes) {
+
+    if (inOpaqueBufferHandle == NULL || outOpaqueBufferHandle == NULL || copyIndexArray == NULL) {
+        SEC_LOG_ERROR("Null pointer arg encountered");
+        return SEC_RESULT_FAILURE;
+    }
+
+    sa_svp_offset* offsets = calloc(1, sizeof(sa_svp_offset) * numOfIndexes);
+    if (offsets == NULL) {
+        SEC_LOG_ERROR("calloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    for (int i = 0; i < numOfIndexes; i++) {
+        offsets[i].in_offset = copyIndexArray[i].offset_in_src;
+        offsets[i].out_offset = copyIndexArray[i].offset_in_target;
+        offsets[i].length = copyIndexArray[i].bytes_to_copy;
+    }
+
+    sa_status status = sa_svp_buffer_copy(outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer,
+            offsets, numOfIndexes);
+    SEC_FREE(offsets);
+    CHECK_STATUS(status)
+    return SEC_RESULT_SUCCESS;
 }

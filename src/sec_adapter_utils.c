@@ -458,6 +458,59 @@ EC_KEY* SecUtils_ECCFromDERPriv(const SEC_BYTE* der, SEC_SIZE der_len) {
     return ecc;
 }
 
+Sec_Result SecUtils_ECCToDERPrivKeyInfo(EC_KEY* ec_key, SEC_BYTE* output, SEC_SIZE out_len, SEC_SIZE* written) {
+    BIO* bio = NULL;
+    EVP_PKEY* evp_key = NULL;
+    BUF_MEM* bptr = NULL;
+    PKCS8_PRIV_KEY_INFO* pkcs8 = NULL;
+    Sec_Result res = SEC_RESULT_FAILURE;
+
+    evp_key = EVP_PKEY_new();
+    if (0 == EVP_PKEY_set1_EC_KEY(evp_key, ec_key)) {
+        SEC_LOG_ERROR("EVP_PKEY_set1_EC_KEY failed");
+        goto done;
+    }
+
+    bio = BIO_new(BIO_s_mem());
+    if (bio == NULL) {
+        SEC_LOG_ERROR("BIO_new(BIO_s_mem()) failed");
+        goto done;
+    }
+
+    pkcs8 = EVP_PKEY2PKCS8(evp_key);
+    if (pkcs8 == NULL) {
+        SEC_LOG_ERROR("EVP_PKEY2PKCS8 failed");
+        goto done;
+    }
+
+    if (!i2d_PKCS8_PRIV_KEY_INFO_bio(bio, pkcs8)) {
+        SEC_LOG_ERROR("i2d_PKCS8_PRIV_KEY_INFO_bio failed");
+        goto done;
+    }
+
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bptr);
+
+    *written = bptr->length;
+
+    if (output != NULL) {
+        if (out_len < bptr->length) {
+            SEC_LOG_ERROR("output buffer is not large enough");
+            goto done;
+        }
+        memcpy(output, bptr->data, bptr->length);
+    }
+
+    res = SEC_RESULT_SUCCESS;
+
+done:
+    SEC_EVPPKEY_FREE(evp_key);
+    SEC_BIO_FREE(bio);
+    PKCS8_PRIV_KEY_INFO_free(pkcs8);
+
+    return res;
+}
+
 Sec_Result SecUtils_ECCToPubBinary(EC_KEY* ec_key, Sec_ECCRawPublicKey* binary) {
     BIGNUM* x = NULL;
     BIGNUM* y = NULL;
@@ -619,7 +672,7 @@ Sec_Result SecUtils_Base64Decode(const SEC_BYTE* input, SEC_SIZE in_len, SEC_BYT
 
     if (ret_len == 0)
         return SEC_RESULT_FAILURE;
-    
+
     *out_len = ret_len;
     return SEC_RESULT_SUCCESS;
 }
@@ -713,10 +766,19 @@ Sec_Result SecUtils_RSAToDERPrivKeyInfo(RSA* rsa, SEC_BYTE* output, SEC_SIZE out
         return SEC_RESULT_FAILURE;
     }
 
-    if (!i2d_PKCS8PrivateKeyInfo_bio(bio, evp_key)) {
-        SEC_LOG_ERROR("I2d_PKCS8_PRIV_KEY_INFO_bio failed");
+    PKCS8_PRIV_KEY_INFO* pkcs8 = EVP_PKEY2PKCS8(evp_key);
+    if (pkcs8 == NULL) {
+        SEC_LOG_ERROR("EVP_PKEY2PKCS8 failed");
         SEC_EVPPKEY_FREE(evp_key);
         SEC_BIO_FREE(bio);
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!i2d_PKCS8_PRIV_KEY_INFO_bio(bio, pkcs8)) {
+        SEC_LOG_ERROR("i2d_PKCS8_PRIV_KEY_INFO_bio failed");
+        SEC_EVPPKEY_FREE(evp_key);
+        SEC_BIO_FREE(bio);
+        PKCS8_PRIV_KEY_INFO_free(pkcs8);
         return SEC_RESULT_FAILURE;
     }
 
@@ -730,6 +792,7 @@ Sec_Result SecUtils_RSAToDERPrivKeyInfo(RSA* rsa, SEC_BYTE* output, SEC_SIZE out
             SEC_LOG_ERROR("Output buffer is not large enough");
             SEC_EVPPKEY_FREE(evp_key);
             SEC_BIO_FREE(bio);
+            PKCS8_PRIV_KEY_INFO_free(pkcs8);
             return SEC_RESULT_FAILURE;
         }
 
@@ -738,10 +801,11 @@ Sec_Result SecUtils_RSAToDERPrivKeyInfo(RSA* rsa, SEC_BYTE* output, SEC_SIZE out
 
     SEC_EVPPKEY_FREE(evp_key);
     SEC_BIO_FREE(bio);
+    PKCS8_PRIV_KEY_INFO_free(pkcs8);
     return SEC_RESULT_SUCCESS;
 }
 
-Sec_Result SecUtils_WrapSymetric(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID wrappingKey,
+Sec_Result SecUtils_WrapSymmetric(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID wrappingKey,
         Sec_CipherAlgorithm wrappingAlg, SEC_BYTE* iv, SEC_BYTE* payload, SEC_SIZE payloadLen, SEC_BYTE* out,
         SEC_SIZE out_len, SEC_SIZE* written) {
     if (SecCipher_SingleInputId(processorHandle, wrappingAlg, SEC_CIPHERMODE_ENCRYPT, wrappingKey, iv, payload,

@@ -176,11 +176,10 @@ std::string generate_payload(
     return TestCreds::b64_encode(oss.str().data(), oss.str().size());
 }
 
-std::vector<uint8_t> generate_sa_soc_key_container(std::vector<uint8_t>& key_clear,
-        std::string& key_type,
+std::vector<uint8_t> generate_sa_soc_key_container(std::vector<uint8_t>& key_clear, std::string& key_type,
         std::vector<uint8_t>& tag) {
     auto jwt_header = generate_header();
-    auto jwt_payload = generate_payload(3, key_type, key_clear, TEST_IV, 3, 3, ENTITLED_TA_IDS, TEST_C1, TEST_C2,
+    auto jwt_payload = generate_payload(4, key_type, key_clear, TEST_IV, 3, 3, ENTITLED_TA_IDS, TEST_C1, TEST_C2,
             TEST_C3, tag);
     std::string key_container = jwt_header + "." + jwt_payload + "." + TestCreds::b64_encode(tag.data(), tag.size());
 
