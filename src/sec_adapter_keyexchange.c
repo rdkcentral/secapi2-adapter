@@ -151,7 +151,7 @@ Sec_Result SecKeyExchange_GenerateKeys(Sec_KeyExchangeHandle* keyExchangeHandle,
             DH* dh = EVP_PKEY_get1_DH(evp_pkey);
             if (dh == NULL) {
                 EVP_PKEY_free(evp_pkey);
-                SEC_LOG_ERROR("EVP_PKEY_get0_DH failed");
+                SEC_LOG_ERROR("EVP_PKEY_get1_DH failed");
                 return SEC_RESULT_FAILURE;
             }
 
