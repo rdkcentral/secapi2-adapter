@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-# Find libyajl
 
 FIND_PATH(SACLIENT_INCLUDE_DIR sa.h)
 
