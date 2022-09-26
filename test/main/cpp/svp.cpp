@@ -160,7 +160,7 @@ Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Stora
 }
 
 Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
-        Sec_CipherAlgorithm cipher_algorithm) {
+        Sec_CipherAlgorithm cipher_algorithm, int size) {
     TestCtx ctx;
 
     if (ctx.init() != SEC_RESULT_SUCCESS) {
@@ -183,14 +183,14 @@ Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
     }
 
     Sec_OpaqueBufferHandle* inOpaqueBufferHandle = nullptr;
-    if (SecOpaqueBuffer_Malloc(256, &inOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(size, &inOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
         SecCipher_Release(cipherHandle);
         return SEC_RESULT_FAILURE;
     }
 
     Sec_OpaqueBufferHandle* outOpaqueBufferHandle = nullptr;
-    if (SecOpaqueBuffer_Malloc(256, &outOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(size, &outOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(outOpaqueBufferHandle);
         SecCipher_Release(cipherHandle);
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
@@ -199,7 +199,8 @@ Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
 
     SEC_SIZE written = 0;
 
-    if (SecCipher_ProcessOpaque(cipherHandle, inOpaqueBufferHandle, outOpaqueBufferHandle, 256, SEC_TRUE, &written) !=
+    SEC_BOOL last = size % 16 == 0 ? SEC_TRUE : SEC_FALSE;
+    if (SecCipher_ProcessOpaque(cipherHandle, inOpaqueBufferHandle, outOpaqueBufferHandle, size, last, &written) !=
             SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(inOpaqueBufferHandle);
         SecOpaqueBuffer_Free(outOpaqueBufferHandle);
@@ -214,6 +215,7 @@ Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
 
     return SEC_RESULT_SUCCESS;
 }
+
 
 Sec_Result testCopyOpaque() {
     TestCtx ctx;
