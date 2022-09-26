@@ -180,7 +180,8 @@ Sec_Result SecKeyExchange_GenerateKeys(Sec_KeyExchangeHandle* keyExchangeHandle,
         }
         case SEC_KEYEXCHANGE_ECDH: {
             Sec_ECCRawPublicKey ecc_raw_public_key;
-            if (Pubops_ExtractECCPubFromPUBKEYDer(public_key_bytes, out_length, &ecc_raw_public_key) != SEC_RESULT_SUCCESS) {
+            if (Pubops_ExtractECCPubFromPUBKEYDer(public_key_bytes, out_length, &ecc_raw_public_key) !=
+                    SEC_RESULT_SUCCESS) {
                 SEC_LOG_ERROR("Pubops_ExtractECCPubFromPUBKEYDer failed");
                 return SEC_RESULT_FAILURE;
             }
@@ -327,7 +328,8 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
                 return SEC_RESULT_FAILURE;
             }
 
-            if (Pubops_ExtractECCPubToPUBKEYDer((Sec_ECCRawPublicKey*) otherPublicKey, &public_key_bytes, &key_len) != SEC_RESULT_SUCCESS) {
+            if (Pubops_ExtractECCPubToPUBKEYDer((Sec_ECCRawPublicKey*) otherPublicKey, &public_key_bytes, &key_len) !=
+                    SEC_RESULT_SUCCESS) {
                 SEC_LOG_ERROR("Can only derive symmetric keys");
                 return SEC_RESULT_FAILURE;
             }
