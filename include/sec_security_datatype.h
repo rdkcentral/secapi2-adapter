@@ -36,7 +36,7 @@ extern "C" {
 #define BIT_32
 #endif
 #elif __GNUC__ || defined(__APPLE__)
-#if __x86_64__ || __ppc64__
+#if __x86_64__ || __ppc64__ || __aarch64__
 #define BIT_64
 #else
 #define BIT_32

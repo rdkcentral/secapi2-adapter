@@ -455,7 +455,7 @@ Sec_Result testKeyCtrlProvision32bit2038(int version, const char* alg) {
     }
 
     //provision jtype key
-#if defined(__x86_64__) || defined(__ppc64__)
+#if defined(__x86_64__) || defined(__ppc64__) || defined(__aarch64__)
     if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_USER_BASE, SEC_STORAGELOC_RAM, SEC_KEYCONTAINER_JTYPE,
                 reinterpret_cast<SEC_BYTE*>(&jtype[0]), jtype.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_Provision failed");
