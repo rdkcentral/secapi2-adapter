@@ -826,9 +826,11 @@ void runSVPTests(SuiteCtx* suite) {
         RUN_TEST(suite, testSetTime())
         RUN_TEST(suite, testKeycheckOpaque(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM))
         RUN_TEST(suite, testProcessOpaque(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM,
-                                SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING))
+                                SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, 256))
         RUN_TEST(suite, testProcessOpaque(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM,
-                                SEC_CIPHERALGORITHM_AES_CBC_NO_PADDING))
+                                SEC_CIPHERALGORITHM_AES_CBC_NO_PADDING, 256))
+        RUN_TEST(suite, testProcessOpaque(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM,
+                                SEC_CIPHERALGORITHM_AES_CTR, 498))
         RUN_TEST(suite,
                 testProcessDataShiftOpaque(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM))
     }
