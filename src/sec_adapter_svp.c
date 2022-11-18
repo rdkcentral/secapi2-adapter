@@ -17,13 +17,16 @@
  */
 
 #include "sec_security_svp.h"
+#include "sa_svp.h"
 
 // Deprecated
-Sec_Result Sec_OpaqueBufferMalloc(SEC_SIZE bufLength, void** handle, void* params) {
-    return SecOpaqueBuffer_Malloc(bufLength, (Sec_OpaqueBufferHandle**) handle);
+Sec_Result Sec_OpaqueBufferMalloc(Sec_ProcessorHandle* processorHandle, SEC_SIZE bufLength, void** handle,
+        void* params) {
+    return SecOpaqueBuffer_Malloc(processorHandle, bufLength, (Sec_OpaqueBufferHandle**) handle);
 }
 
-Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** handle) {
+Sec_Result SecOpaqueBuffer_Malloc(Sec_ProcessorHandle* processorHandle, SEC_SIZE bufLength,
+        Sec_OpaqueBufferHandle** handle) {
     if (bufLength == 0) {
         SEC_LOG_ERROR("Argument `length' has value of 0");
         return SEC_RESULT_FAILURE;
@@ -39,6 +42,7 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** h
         return SEC_RESULT_FAILURE;
     }
 
+    (*handle)->processorHandle = processorHandle;
     sa_status status = sa_svp_memory_alloc(&(*handle)->svp_memory, bufLength);
     if (status != SA_STATUS_OK) {
         SEC_LOG_ERROR("sa_svp_memory_alloc failed");
@@ -47,7 +51,7 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** h
     }
 
     (*handle)->size = bufLength;
-    status = sa_svp_buffer_create(&(*handle)->svp_buffer, (*handle)->svp_memory, bufLength);
+    status = sa_invoke(processorHandle, SA_SVP_BUFFER_CREATE, &(*handle)->svp_buffer, (*handle)->svp_memory, bufLength);
     if (status != SA_STATUS_OK) {
         SEC_LOG_ERROR("sa_svp_buffer_create failed");
         sa_svp_memory_free((*handle)->svp_memory);
@@ -81,7 +85,8 @@ Sec_Result SecOpaqueBuffer_Write(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC
     }
 
     sa_svp_offset svp_offset = {offset, 0, length};
-    sa_status status = sa_svp_buffer_write((*opaqueBufferHandle).svp_buffer, data, length, &svp_offset, 1);
+    sa_status status = sa_invoke(opaqueBufferHandle->processorHandle, SA_SVP_BUFFER_WRITE,
+            (*opaqueBufferHandle).svp_buffer, data, length, &svp_offset, 1);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -92,8 +97,7 @@ Sec_Result Sec_OpaqueBufferFree(Sec_OpaqueBufferHandle* opaqueBufferHandle, void
 
 Sec_Result SecOpaqueBuffer_Free(Sec_OpaqueBufferHandle* opaqueBufferHandle) {
     if (opaqueBufferHandle != NULL) {
-
-        sa_svp_buffer_free(opaqueBufferHandle->svp_buffer);
+        sa_invoke(opaqueBufferHandle->processorHandle, SA_SVP_BUFFER_FREE, opaqueBufferHandle->svp_buffer);
         SEC_FREE(opaqueBufferHandle);
     }
 
@@ -108,8 +112,8 @@ Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, S
     }
 
     sa_svp_offset svp_offset = {out_offset, in_offset, num_to_copy};
-    sa_status status = sa_svp_buffer_copy(outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer,
-            &svp_offset, 1);
+    sa_status status = sa_invoke(outOpaqueBufferHandle->processorHandle, SA_SVP_BUFFER_COPY,
+            outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer, &svp_offset, 1);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -121,7 +125,8 @@ Sec_Result SecOpaqueBuffer_Release(Sec_OpaqueBufferHandle* opaqueBufferHandle, S
     }
 
     size_t out_length;
-    sa_status status = sa_svp_buffer_release(svpHandle, &out_length, opaqueBufferHandle->svp_buffer);
+    sa_status status = sa_invoke(opaqueBufferHandle->processorHandle, SA_SVP_BUFFER_RELEASE, svpHandle, &out_length,
+            opaqueBufferHandle->svp_buffer);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -152,8 +157,8 @@ Sec_Result SecOpaqueBuffer_Check(Sec_DigestAlgorithm digestAlgorithm, Sec_Opaque
             return SEC_RESULT_INVALID_PARAMETERS;
     }
 
-    sa_status status = sa_svp_buffer_check(opaqueBufferHandle->svp_buffer, 0, length, algorithm, expected,
-            expectedLength);
+    sa_status status = sa_invoke(opaqueBufferHandle->processorHandle, SA_SVP_BUFFER_CHECK,
+            opaqueBufferHandle->svp_buffer, 0, length, algorithm, expected, expectedLength);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -189,8 +194,8 @@ Sec_Result SecOpaqueBuffer_CopyByIndex(Sec_OpaqueBufferHandle* outOpaqueBufferHa
         offsets[i].length = copyIndexArray[i].bytes_to_copy;
     }
 
-    sa_status status = sa_svp_buffer_copy(outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer,
-            offsets, numOfIndexes);
+    sa_status status = sa_invoke(outOpaqueBufferHandle->processorHandle, SA_SVP_BUFFER_COPY,
+            outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer, offsets, numOfIndexes);
     SEC_FREE(offsets);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;

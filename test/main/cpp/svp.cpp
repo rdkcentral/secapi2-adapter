@@ -32,7 +32,7 @@ Sec_Result testOpaqueMalloc() {
     Sec_OpaqueBufferHandle* opaqueBufferHandle = nullptr;
     SEC_BYTE input[MAX_BUFFER_SIZE];
 
-    if (SecOpaqueBuffer_Malloc(sizeof(input), &opaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(ctx.proc(), sizeof(input), &opaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
         return SEC_RESULT_FAILURE;
     }
@@ -112,7 +112,7 @@ Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Stora
     TestCtx::printHex("expected", expected);
 
     Sec_OpaqueBufferHandle* opaqueBufferHandle = nullptr;
-    if (SecOpaqueBuffer_Malloc(256, &opaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(ctx.proc(), 256, &opaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SecCipher_Release(cipherHandle);
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
         return SEC_RESULT_FAILURE;
@@ -183,14 +183,14 @@ Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
     }
 
     Sec_OpaqueBufferHandle* inOpaqueBufferHandle = nullptr;
-    if (SecOpaqueBuffer_Malloc(size, &inOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(ctx.proc(), size, &inOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
         SecCipher_Release(cipherHandle);
         return SEC_RESULT_FAILURE;
     }
 
     Sec_OpaqueBufferHandle* outOpaqueBufferHandle = nullptr;
-    if (SecOpaqueBuffer_Malloc(size, &outOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(ctx.proc(), size, &outOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(outOpaqueBufferHandle);
         SecCipher_Release(cipherHandle);
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
@@ -225,13 +225,13 @@ Sec_Result testCopyOpaque() {
     }
 
     Sec_OpaqueBufferHandle* inOpaqueBufferHandle = nullptr;
-    if (SecOpaqueBuffer_Malloc(256, &inOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(ctx.proc(), 256, &inOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
         return SEC_RESULT_FAILURE;
     }
 
     Sec_OpaqueBufferHandle* outOpaqueBufferHandle = nullptr;
-    if (SecOpaqueBuffer_Malloc(256, &outOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Malloc(ctx.proc(), 256, &outOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(inOpaqueBufferHandle);
         SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
         return SEC_RESULT_FAILURE;

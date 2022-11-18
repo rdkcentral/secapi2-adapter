@@ -19,11 +19,12 @@
 #ifndef SEC_SECURITY_SVP_H
 #define SEC_SECURITY_SVP_H
 
-#include "sa.h"
+#include "sa_types.h"
 #include "sec_adapter_processor.h"
 #include "sec_security.h"
 
 struct Sec_OpaqueBufferHandle_struct {
+    Sec_ProcessorHandle* processorHandle;
     sa_svp_buffer svp_buffer;
     void* svp_memory;
     size_t size;

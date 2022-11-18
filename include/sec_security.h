@@ -928,7 +928,7 @@ Sec_Result SecCodeIntegrity_SecureBootEnabled(void);
 Sec_Result SecSVP_SetTime(time_t time);
 
 /* 2.2  */
-Sec_Result Sec_OpaqueBufferMalloc(SEC_SIZE bufLength, void** handle, void* params)
+Sec_Result Sec_OpaqueBufferMalloc(Sec_ProcessorHandle* processorHandle, SEC_SIZE bufLength, void** handle, void* params)
         __attribute__((deprecated));
 
 Sec_Result Sec_OpaqueBufferWrite(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC_SIZE offset, void* data,
@@ -936,7 +936,8 @@ Sec_Result Sec_OpaqueBufferWrite(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC
 
 Sec_Result Sec_OpaqueBufferFree(Sec_OpaqueBufferHandle* opaqueBufferHandle, void* params) __attribute__((deprecated));
 
-Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** handle);
+Sec_Result SecOpaqueBuffer_Malloc(Sec_ProcessorHandle* processorHandle, SEC_SIZE bufLength,
+        Sec_OpaqueBufferHandle** handle);
 
 Sec_Result SecOpaqueBuffer_Write(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC_SIZE offset, SEC_BYTE* data,
         SEC_SIZE length);

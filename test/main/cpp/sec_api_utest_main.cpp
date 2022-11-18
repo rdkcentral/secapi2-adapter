@@ -1229,6 +1229,7 @@ int testIt(int argc, char* argv[]) { // NOLINT
     TestCreds::init();
     SuiteCtx suite;
     suite.setRunParams(runParams);
+    Sec_InitOpenSSL();
 
     SEC_PRINT("\n");
     SEC_PRINT("CAPABILITY_AES256: %d\n", TestCreds::supports(CAPABILITY_AES256));

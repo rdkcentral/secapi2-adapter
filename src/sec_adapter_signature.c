@@ -144,10 +144,11 @@ Sec_Result SecSignature_Process(Sec_SignatureHandle* signatureHandle, SEC_BYTE* 
         size_t out_length = 0;
         const Sec_Key* key = get_key(signatureHandle->keyHandle);
         // Get the out_length since it is not given to us.
-        sa_status status = sa_crypto_sign(NULL, &out_length, signature_algorithm, key->handle, input, inputSize,
-                parameters);
+        sa_status status = sa_invoke(signatureHandle->processorHandle, SA_CRYPTO_SIGN, NULL, &out_length,
+                signature_algorithm, key->handle, input, inputSize, parameters);
         CHECK_STATUS(status)
-        status = sa_crypto_sign(signature, &out_length, signature_algorithm, key->handle, input, inputSize, parameters);
+        status = sa_invoke(signatureHandle->processorHandle, SA_CRYPTO_SIGN, signature, &out_length,
+                signature_algorithm, key->handle, input, inputSize, parameters);
         CHECK_STATUS(status)
         *signatureSize = out_length;
     } else {

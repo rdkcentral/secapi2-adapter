@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sa.h"
+#include "sa_types.h"
 #include "sec_adapter_processor.h"
 #include "sec_security.h"
 
@@ -112,11 +112,16 @@ Sec_Result SecMac_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_MacAlgor
             break;
 
         default:
+            free(*macHandle);
             return SEC_RESULT_INVALID_PARAMETERS;
     }
 
     const Sec_Key* key = get_key(keyHandle);
-    sa_status status = sa_crypto_mac_init(&(*macHandle)->mac_context, mac_algorithm, key->handle, parameters);
+    sa_status status = sa_invoke(processorHandle, SA_CRYPTO_MAC_INIT, &(*macHandle)->mac_context, mac_algorithm,
+            key->handle, parameters);
+    if (status != SA_STATUS_OK)
+        free(*macHandle);
+
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -132,7 +137,8 @@ Sec_Result SecMac_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_MacAlgor
  */
 Sec_Result SecMac_Update(Sec_MacHandle* macHandle, SEC_BYTE* input, SEC_SIZE inputSize) {
     CHECK_HANDLE(macHandle)
-    sa_status status = sa_crypto_mac_process(macHandle->mac_context, input, inputSize);
+    sa_status status = sa_invoke(macHandle->processorHandle, SA_CRYPTO_MAC_PROCESS, macHandle->mac_context, input,
+            inputSize);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -149,7 +155,8 @@ Sec_Result SecMac_UpdateWithKey(Sec_MacHandle* macHandle, Sec_KeyHandle* keyHand
     CHECK_HANDLE(macHandle)
     CHECK_HANDLE(keyHandle)
     const Sec_Key* key = get_key(keyHandle);
-    sa_status status = sa_crypto_mac_process_key(macHandle->mac_context, key->handle);
+    sa_status status = sa_invoke(macHandle->processorHandle, SA_CRYPTO_MAC_PROCESS_KEY, macHandle->mac_context,
+            key->handle);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -168,12 +175,12 @@ Sec_Result SecMac_Release(Sec_MacHandle* macHandle, SEC_BYTE* macBuffer, SEC_SIZ
     CHECK_HANDLE(macHandle)
 
     size_t out_length = SEC_MAC_MAX_LEN;
-    sa_status status = sa_crypto_mac_compute(macBuffer, &out_length, macHandle->mac_context);
-    sa_crypto_mac_release(macHandle->mac_context);
-    CHECK_STATUS(status)
-
+    sa_status status = sa_invoke(macHandle->processorHandle, SA_CRYPTO_MAC_COMPUTE, macBuffer, &out_length,
+            macHandle->mac_context);
+    sa_invoke(macHandle->processorHandle, SA_CRYPTO_MAC_RELEASE, macHandle->mac_context);
     *macSize = out_length;
     SEC_FREE(macHandle);
+    CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
 

@@ -19,7 +19,8 @@
 #ifndef SEC_ADAPTER_PROCESSOR_H
 #define SEC_ADAPTER_PROCESSOR_H
 
-#include "sa.h"
+#include "sa_types.h"
+#include "sa_ta_types.h"
 #include "sec_adapter_key.h"
 #include "sec_security.h"
 #include "sec_security_store.h"
@@ -34,6 +35,14 @@
 #else
 #include <stdint.h>
 #endif
+
+#define MAX_QUEUE_SIZE 32
+
+typedef struct {
+    SA_COMMAND_ID command_id;
+    va_list* arguments;
+    sa_status result;
+} sa_command;
 
 typedef struct {
     SEC_BYTE input1[SEC_AES_BLOCK_SIZE];
@@ -78,6 +87,13 @@ struct Sec_ProcessorHandle_struct {
     char* global_dir;
     char* app_dir;
     int device_settings_init_flag;
+    pthread_t thread;
+    pthread_cond_t cond;
+    pthread_mutex_t mutex;
+    bool shutdown;
+    sa_command* queue[MAX_QUEUE_SIZE];
+    size_t queue_front;
+    size_t queue_size;
 };
 
 static const int SECAPI3_KEY_DEPTH = 4;
@@ -116,5 +132,7 @@ static const int SECAPI3_KEY_DEPTH = 4;
         default: \
             return SEC_RESULT_FAILURE; \
     }
+
+sa_status sa_invoke(Sec_ProcessorHandle* processorHandle, SA_COMMAND_ID command_id, ...);
 
 #endif // SEC_ADAPTER_PROCESSOR_H

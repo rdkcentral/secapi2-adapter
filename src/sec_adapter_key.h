@@ -19,7 +19,7 @@
 #ifndef SEC_ADAPTER_KEY_H
 #define SEC_ADAPTER_KEY_H
 
-#include "sa.h"
+#include "sa_types.h"
 #include "sec_security.h"
 #include "sec_security_comcastids.h"
 #include <openssl/engine.h>

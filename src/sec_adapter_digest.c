@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sa.h"
+#include "sa_types.h"
 #include "sec_adapter_processor.h"
 #include "sec_security.h"
 #include <openssl/sha.h>
@@ -141,7 +141,8 @@ Sec_Result SecDigest_UpdateWithKey(Sec_DigestHandle* digestHandle, Sec_KeyHandle
     const Sec_Key* key = get_key(keyHandle);
     sa_digest_algorithm algorithm = (digestHandle->algorithm == SEC_DIGESTALGORITHM_SHA1) ? SA_DIGEST_ALGORITHM_SHA1 :
                                                                                             SA_DIGEST_ALGORITHM_SHA256;
-    sa_status status = sa_key_digest(NULL, &digestHandle->key_digest_length, key->handle, algorithm);
+    sa_status status = sa_invoke(digestHandle->processorHandle, SA_KEY_DIGEST, NULL, &digestHandle->key_digest_length,
+            key->handle, algorithm);
     CHECK_STATUS(status)
 
     digestHandle->key_digest = malloc(digestHandle->key_digest_length);
@@ -150,8 +151,8 @@ Sec_Result SecDigest_UpdateWithKey(Sec_DigestHandle* digestHandle, Sec_KeyHandle
         return SEC_RESULT_FAILURE;
     }
 
-    status = sa_key_digest(digestHandle->key_digest, &digestHandle->key_digest_length, key->handle,
-            algorithm);
+    status = sa_invoke(digestHandle->processorHandle, SA_KEY_DIGEST, digestHandle->key_digest,
+            &digestHandle->key_digest_length, key->handle, algorithm);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
