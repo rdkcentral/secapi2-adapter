@@ -164,7 +164,7 @@ Sec_Result SecCipher_UpdateIV(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv) {
     sa_status status;
     if (key_type == SEC_KEYTYPE_AES_128 || key_type == SEC_KEYTYPE_AES_256) {
         status = sa_invoke(cipherHandle->processorHandle, SA_CRYPTO_CIPHER_UPDATE_IV, cipherHandle->cipher.context, iv,
-                SEC_AES_BLOCK_SIZE);
+                (size_t)SEC_AES_BLOCK_SIZE);
         CHECK_STATUS(status)
         return SEC_RESULT_SUCCESS;
     }
@@ -507,8 +507,8 @@ Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBu
         return SEC_RESULT_UNIMPLEMENTED_FEATURE;
 
     const Sec_Key* key = get_key(cipherHandle->keyHandle);
-    status = sa_invoke(cipherHandle->processorHandle, SA_SVP_KEY_CHECK, key->handle, &in_buffer, SEC_AES_BLOCK_SIZE,
-            expected, SEC_AES_BLOCK_SIZE);
+    status = sa_invoke(cipherHandle->processorHandle, SA_SVP_KEY_CHECK, key->handle, &in_buffer,
+            (size_t)SEC_AES_BLOCK_SIZE, expected, (size_t)SEC_AES_BLOCK_SIZE);
 
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
@@ -955,7 +955,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
     sample.out = &out_buffer;
     sample.in = &in_buffer;
 
-    sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, 1, &sample);
+    sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, (size_t)1, &sample);
     free(subsample_lengths);
     if (status != SA_STATUS_OK) {
         SecOpaqueBuffer_Free(*outputHandle);

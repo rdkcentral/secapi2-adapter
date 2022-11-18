@@ -226,7 +226,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
     rights_set_allow_all(&rights, SEC_KEYTYPE_NUM);
 
     SEC_BYTE* public_key_bytes;
-    uint32_t key_len;
+    SEC_SIZE key_len;
     Sec_KeyContainer key_container;
     switch (keyExchangeHandle->alg) {
         case SEC_KEYEXCHANGE_DH: {
@@ -349,8 +349,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
 
     sa_key shared_secret;
     sa_status status = sa_invoke(keyExchangeHandle->processorHandle, SA_KEY_EXCHANGE, &shared_secret, &rights,
-            algorithm, *keyExchangeHandle->key, public_key_bytes,
-            key_len, NULL);
+            algorithm, *keyExchangeHandle->key, public_key_bytes, (size_t)key_len, NULL);
     free(public_key_bytes);
     CHECK_STATUS(status)
 

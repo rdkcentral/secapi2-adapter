@@ -430,10 +430,6 @@ void sa_process_command(sa_command* command) {
             command->result = sa_get_version(va_arg(*command->arguments, sa_version*));
             break;
 
-        case SA_GET_NAME:
-            command->result = sa_get_name(va_arg(*command->arguments, char*), va_arg(*command->arguments, size_t*));
-            break;
-
         case SA_GET_DEVICE_ID:
             command->result = sa_get_device_id(va_arg(*command->arguments, uint64_t*));
             break;
@@ -540,7 +536,7 @@ void sa_process_command(sa_command* command) {
 
         case SA_CRYPTO_MAC_PROCESS_KEY:
             command->result = sa_crypto_mac_process_key(va_arg(*command->arguments, sa_crypto_mac_context),
-                    va_arg(*command->arguments, size_t));
+                    va_arg(*command->arguments, sa_key));
             break;
 
         case SA_CRYPTO_MAC_COMPUTE:
@@ -561,11 +557,6 @@ void sa_process_command(sa_command* command) {
 
         case SA_SVP_SUPPORTED:
             command->result = sa_svp_supported();
-            break;
-
-        case SA_SVP_BUFFER_ALLOC:
-            command->result = sa_svp_buffer_alloc(va_arg(*command->arguments, sa_svp_buffer*),
-                    va_arg(*command->arguments, size_t));
             break;
 
         case SA_SVP_BUFFER_CREATE:
@@ -612,6 +603,9 @@ void sa_process_command(sa_command* command) {
                     va_arg(*command->arguments, sa_sample*));
             break;
 
+        case SA_GET_NAME:
+        case SA_SVP_BUFFER_ALLOC:
+            // Unused
         default:
             command->result = SA_STATUS_INTERNAL_ERROR;
     }

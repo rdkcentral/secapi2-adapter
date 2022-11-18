@@ -51,7 +51,8 @@ Sec_Result SecOpaqueBuffer_Malloc(Sec_ProcessorHandle* processorHandle, SEC_SIZE
     }
 
     (*handle)->size = bufLength;
-    status = sa_invoke(processorHandle, SA_SVP_BUFFER_CREATE, &(*handle)->svp_buffer, (*handle)->svp_memory, bufLength);
+    status = sa_invoke(processorHandle, SA_SVP_BUFFER_CREATE, &(*handle)->svp_buffer, (*handle)->svp_memory,
+                       (size_t)bufLength);
     if (status != SA_STATUS_OK) {
         SEC_LOG_ERROR("sa_svp_buffer_create failed");
         sa_svp_memory_free((*handle)->svp_memory);
@@ -86,7 +87,7 @@ Sec_Result SecOpaqueBuffer_Write(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC
 
     sa_svp_offset svp_offset = {offset, 0, length};
     sa_status status = sa_invoke(opaqueBufferHandle->processorHandle, SA_SVP_BUFFER_WRITE,
-            (*opaqueBufferHandle).svp_buffer, data, length, &svp_offset, 1);
+            (*opaqueBufferHandle).svp_buffer, data, (size_t)length, &svp_offset, 1);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -113,7 +114,7 @@ Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, S
 
     sa_svp_offset svp_offset = {out_offset, in_offset, num_to_copy};
     sa_status status = sa_invoke(outOpaqueBufferHandle->processorHandle, SA_SVP_BUFFER_COPY,
-            outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer, &svp_offset, 1);
+            outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer, &svp_offset, (size_t)1);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -158,7 +159,7 @@ Sec_Result SecOpaqueBuffer_Check(Sec_DigestAlgorithm digestAlgorithm, Sec_Opaque
     }
 
     sa_status status = sa_invoke(opaqueBufferHandle->processorHandle, SA_SVP_BUFFER_CHECK,
-            opaqueBufferHandle->svp_buffer, 0, length, algorithm, expected, expectedLength);
+            opaqueBufferHandle->svp_buffer, (size_t)0, (size_t)length, algorithm, expected, (size_t)expectedLength);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
