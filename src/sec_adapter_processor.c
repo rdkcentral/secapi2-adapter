@@ -18,6 +18,7 @@
 
 #include "sec_adapter_processor.h" // NOLINT
 #include "sa.h"
+#include "sec_security_svp.h"
 
 struct Sec_ProcessorInitParams_struct {
 };
@@ -344,15 +345,8 @@ Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
     if (processorHandle == NULL)
         return SEC_RESULT_INVALID_HANDLE;
 
-    pthread_mutex_lock(&processorHandle->mutex);
-    processorHandle->shutdown = true;
-    pthread_cond_broadcast(&processorHandle->cond);
-    pthread_mutex_unlock(&processorHandle->mutex);
-
-    void* thread_return = NULL;
-    pthread_join(processorHandle->thread, &thread_return);
-    pthread_cond_destroy(&processorHandle->cond);
-    pthread_mutex_destroy(&processorHandle->mutex);
+    while (processorHandle->opaque_buffer_handle != NULL)
+        release_svp_buffer(processorHandle, processorHandle->opaque_buffer_handle->opaqueBufferHandle);
 
     /* release ram keys */
     while (processorHandle->ram_keys != NULL)
@@ -365,6 +359,16 @@ Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
     /* release ram certs */
     while (processorHandle->ram_certs != NULL)
         SecCertificate_Delete(processorHandle, processorHandle->ram_certs->object_id);
+
+    pthread_mutex_lock(&processorHandle->mutex);
+    processorHandle->shutdown = true;
+    pthread_cond_broadcast(&processorHandle->cond);
+    pthread_mutex_unlock(&processorHandle->mutex);
+
+    void* thread_return = NULL;
+    pthread_join(processorHandle->thread, &thread_return);
+    pthread_cond_destroy(&processorHandle->cond);
+    pthread_mutex_destroy(&processorHandle->mutex);
 
     SEC_FREE(processorHandle->app_dir);
     SEC_FREE(processorHandle->global_dir);
@@ -619,15 +623,15 @@ sa_status sa_invoke(Sec_ProcessorHandle* processorHandle, SA_COMMAND_ID command_
     va_start(va_args, command_id);
     sa_command command = {command_id, &va_args, -1};
 
-    bool command_sent = false;
+    bool command_queued = false;
     pthread_mutex_lock(&processorHandle->mutex);
-    while (!processorHandle->shutdown && command.result == -1 && !command_sent) {
-        if (processorHandle->queue_size < MAX_QUEUE_SIZE) {
+    while (!processorHandle->shutdown && command.result == -1) {
+        if (processorHandle->queue_size < MAX_QUEUE_SIZE && !command_queued) {
             processorHandle->queue[(processorHandle->queue_front + processorHandle->queue_size) % MAX_QUEUE_SIZE] =
                     &command;
             processorHandle->queue_size++;
+            command_queued = true;
             pthread_cond_broadcast(&processorHandle->cond);
-            command_sent = true;
         }
 
         pthread_cond_wait(&processorHandle->cond, &processorHandle->mutex);
@@ -642,27 +646,27 @@ void* sa_invoke_handler(void* handle) {
     if (handle == NULL)
         return (void*) SEC_RESULT_INVALID_HANDLE; // NOLINT
 
-    sa_command* command = NULL;
     Sec_ProcessorHandle* processorHandle = (Sec_ProcessorHandle*) handle;
+    pthread_mutex_lock(&processorHandle->mutex);
     while (!processorHandle->shutdown) {
-        pthread_mutex_lock(&processorHandle->mutex);
         if (processorHandle->queue_size > 0) {
-            command = processorHandle->queue[processorHandle->queue_front];
-            processorHandle->queue_front = processorHandle->queue_front++ % MAX_QUEUE_SIZE;
+            sa_command* command = processorHandle->queue[processorHandle->queue_front];
+            processorHandle->queue[processorHandle->queue_front] = NULL;
+            processorHandle->queue_front = ++processorHandle->queue_front % MAX_QUEUE_SIZE;
             processorHandle->queue_size--;
-        }
 
-        if (command != NULL) {
-            pthread_mutex_unlock(&processorHandle->mutex);
-            sa_process_command(command);
-            command = NULL;
-            pthread_mutex_lock(&processorHandle->mutex);
+            if (command != NULL) {
+                pthread_mutex_unlock(&processorHandle->mutex);
+                sa_process_command(command);
+                pthread_mutex_lock(&processorHandle->mutex);
+            }
+
             pthread_cond_broadcast(&processorHandle->cond);
+        } else {
+            pthread_cond_wait(&processorHandle->cond, &processorHandle->mutex);
         }
-
-        pthread_cond_wait(&processorHandle->cond, &processorHandle->mutex);
-        pthread_mutex_unlock(&processorHandle->mutex);
     }
 
+    pthread_mutex_unlock(&processorHandle->mutex);
     return (void*) SEC_RESULT_SUCCESS;
 }

@@ -1454,11 +1454,11 @@ Sec_Result testKeyCtrlCipherSvpOpaque(int version, const char* alg, TestKey cont
         }
 
         /* init opaque buffers */
-        if (SecOpaqueBuffer_Malloc(ctx.proc(), SEC_AES_BLOCK_SIZE, &clearOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+        if (SecOpaqueBuffer_Malloc(SEC_AES_BLOCK_SIZE, &clearOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
             break;
         }
-        if (SecOpaqueBuffer_Malloc(ctx.proc(), SEC_AES_BLOCK_SIZE, &cipherOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+        if (SecOpaqueBuffer_Malloc(SEC_AES_BLOCK_SIZE, &cipherOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
             break;
         }
@@ -1672,7 +1672,7 @@ Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey conte
         TestCtx::printHex("   input", input);
         TestCtx::printHex("expected", expected);
 
-        if (SecOpaqueBuffer_Malloc(ctx.proc(), input.size(), &opaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+        if (SecOpaqueBuffer_Malloc(input.size(), &opaqueBufferHandle) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
             return SEC_RESULT_FAILURE;
         }

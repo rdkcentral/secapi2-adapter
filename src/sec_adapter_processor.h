@@ -80,6 +80,11 @@ typedef struct Sec_RAMBundleData_struct {
     struct Sec_RAMBundleData_struct* next;
 } Sec_RAMBundleData;
 
+typedef struct opaque_buffer_handle_entry_struct {
+    Sec_OpaqueBufferHandle* opaqueBufferHandle;
+    struct opaque_buffer_handle_entry_struct* next;
+} opaque_buffer_handle_entry;
+
 struct Sec_ProcessorHandle_struct {
     Sec_RAMKeyData* ram_keys;
     Sec_RAMBundleData* ram_bundles;
@@ -87,6 +92,7 @@ struct Sec_ProcessorHandle_struct {
     char* global_dir;
     char* app_dir;
     int device_settings_init_flag;
+    opaque_buffer_handle_entry* opaque_buffer_handle;
     pthread_t thread;
     pthread_cond_t cond;
     pthread_mutex_t mutex;

@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sec_adapter_cipher.h"
+#include "sec_adapter_cipher.h" // NOLINT
 #include "sa_cenc.h"
 #include <stdbool.h>
 
@@ -435,13 +435,17 @@ Sec_Result SecCipher_ProcessOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBuf
         case SEC_KEYTYPE_AES_256: {
             sa_buffer out_buffer;
             out_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
-            out_buffer.context.svp.buffer = outOpaqueBufferHandle->svp_buffer;
             out_buffer.context.svp.offset = 0;
+            out_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, outOpaqueBufferHandle);
+            if (out_buffer.context.svp.buffer == -1)
+                return SEC_RESULT_FAILURE;
 
             sa_buffer in_buffer;
             in_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
-            in_buffer.context.svp.buffer = inOpaqueBufferHandle->svp_buffer;
             in_buffer.context.svp.offset = 0;
+            in_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, inOpaqueBufferHandle);
+            if (in_buffer.context.svp.buffer == -1)
+                return SEC_RESULT_FAILURE;
 
             size_t bytes_to_process = inputSize;
             bool pkcs7 = cipherHandle->algorithm == SEC_CIPHERALGORITHM_AES_CBC_PKCS7_PADDING ||
@@ -501,8 +505,11 @@ Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBu
     sa_status status;
     sa_buffer in_buffer;
     in_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
-    in_buffer.context.svp.buffer = opaqueBufferHandle->svp_buffer;
     in_buffer.context.svp.offset = 0;
+    in_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, opaqueBufferHandle);
+    if (in_buffer.context.svp.buffer == -1)
+        return SEC_RESULT_FAILURE;
+
     if (cipherHandle->mode == SEC_CIPHERMODE_ENCRYPT)
         return SEC_RESULT_UNIMPLEMENTED_FEATURE;
 
@@ -888,8 +895,8 @@ SEC_BOOL SecCipher_IsDecrypt(Sec_CipherMode mode) {
 }
 
 Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv, SEC_BYTE* input,
-        SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength, Sec_OpaqueBufferHandle** outputHandle,
-        SEC_SIZE* bytesWritten) {
+        SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength,
+        Sec_OpaqueBufferHandle** opaqueBufferHandle, SEC_SIZE* bytesWritten) {
 
     if (cipherHandle == NULL) {
         SEC_LOG_ERROR("NULL cipherHandle");
@@ -911,7 +918,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
         return SEC_RESULT_FAILURE;
     }
 
-    if (outputHandle == NULL) {
+    if (opaqueBufferHandle == NULL) {
         SEC_LOG_ERROR("NULL outputHandle");
         return SEC_RESULT_FAILURE;
     }
@@ -921,7 +928,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
         return SEC_RESULT_FAILURE;
     }
 
-    Sec_Result result = SecOpaqueBuffer_Malloc(cipherHandle->processorHandle, inputSize, outputHandle);
+    Sec_Result result = SecOpaqueBuffer_Malloc(inputSize, opaqueBufferHandle);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
         return SEC_RESULT_FAILURE;
@@ -935,8 +942,15 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
 
     sa_buffer out_buffer;
     out_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
-    out_buffer.context.svp.buffer = (*outputHandle)->svp_buffer;
     out_buffer.context.svp.offset = 0;
+    out_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, *opaqueBufferHandle);
+    if (out_buffer.context.svp.buffer == -1) {
+        free(subsample_lengths);
+        SecOpaqueBuffer_Free(*opaqueBufferHandle);
+        *opaqueBufferHandle = NULL;
+        *bytesWritten = 0;
+        return SEC_RESULT_FAILURE;
+    }
 
     sa_buffer in_buffer;
     in_buffer.buffer_type = SA_BUFFER_TYPE_CLEAR;
@@ -958,8 +972,8 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
     sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, (size_t)1, &sample);
     free(subsample_lengths);
     if (status != SA_STATUS_OK) {
-        SecOpaqueBuffer_Free(*outputHandle);
-        *outputHandle = NULL;
+        SecOpaqueBuffer_Free(*opaqueBufferHandle);
+        *opaqueBufferHandle = NULL;
         *bytesWritten = 0;
         CHECK_STATUS(status)
     }
