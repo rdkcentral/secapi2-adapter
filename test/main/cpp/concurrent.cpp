@@ -154,7 +154,7 @@ Sec_Result testConcurrentProcessorInvoke(SEC_SIZE numThreads) {
     }
 
     SEC_PRINT("Spawning %d threads\n", numThreads);
-    for (uint64_t& thread : threads) {
+    for (pthread_t& thread : threads) {
         pthread_create(&thread, nullptr, testProcessorGetDeviceId, &ctx);
     }
 
