@@ -244,7 +244,6 @@ Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, S
         if (sa_svp_buffer_create(&out_svp_buffer, outOpaqueBufferHandle->svp_memory,
                     outOpaqueBufferHandle->size) != SA_STATUS_OK) {
             SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            sa_svp_buffer_release(&svp_memory, &svp_size, out_svp_buffer);
             return SEC_RESULT_FAILURE;
         }
 
@@ -252,6 +251,7 @@ Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, S
         if (sa_svp_buffer_create(&in_svp_buffer, inOpaqueBufferHandle->svp_memory,
                     inOpaqueBufferHandle->size) != SA_STATUS_OK) {
             SEC_LOG_ERROR("sa_svp_buffer_create failed");
+            sa_svp_buffer_release(&svp_memory, &svp_size, out_svp_buffer);
             return SEC_RESULT_FAILURE;
         }
 
