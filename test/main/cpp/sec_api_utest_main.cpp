@@ -833,6 +833,8 @@ void runSVPTests(SuiteCtx* suite) {
                                 SEC_CIPHERALGORITHM_AES_CTR, 498))
         RUN_TEST(suite,
                 testProcessDataShiftOpaque(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM))
+        RUN_TEST(suite, testOpaqueMultiProcHandle(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM,
+                                SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, 256))
     }
 }
 
