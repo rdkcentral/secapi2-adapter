@@ -435,6 +435,7 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
         return SEC_RESULT_FAILURE;
     }
 
+    SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
     SecCipher_Release(cipherHandle1);
     TestCtx ctx2;
     if (ctx2.init() != SEC_RESULT_SUCCESS) {
