@@ -60,19 +60,10 @@ sa_svp_buffer get_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBuf
     opaque_buffer_handle_entry* opaque_buffer_handle =
             (opaque_buffer_handle_entry*) calloc(1, sizeof(opaque_buffer_handle_entry));
     opaque_buffer_handle->opaqueBufferHandle = opaqueBufferHandle;
-    opaque_buffer_handle_entry* next_opaque_buffer_handle = processorHandle->opaque_buffer_handle;
-    opaque_buffer_handle_entry* previous_opaque_buffer_handle = NULL;
-    while (next_opaque_buffer_handle != NULL) {
-        previous_opaque_buffer_handle = next_opaque_buffer_handle;
-        next_opaque_buffer_handle = next_opaque_buffer_handle->next;
-    }
-
-    if (previous_opaque_buffer_handle == NULL)
-        processorHandle->opaque_buffer_handle = opaque_buffer_handle;
-    else
-        previous_opaque_buffer_handle->next = opaque_buffer_handle;
-
+    opaque_buffer_handle->next = processorHandle->opaque_buffer_handle;
+    processorHandle->opaque_buffer_handle =  opaque_buffer_handle;
     pthread_mutex_unlock(&processorHandle->mutex);
+
     return next_processor_buffer->svp_buffer;
 }
 
