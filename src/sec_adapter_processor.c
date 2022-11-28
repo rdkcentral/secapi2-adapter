@@ -326,8 +326,9 @@ Sec_Result SecProcessor_GetDeviceId(Sec_ProcessorHandle* processorHandle, SEC_BY
     if (deviceId == NULL)
         return SEC_RESULT_INVALID_PARAMETERS;
 
+    // Use a direct call instead of invoke to prevent start up issues.
     uint64_t sa3_device_id;
-    sa_status status = sa_invoke(processorHandle, SA_GET_DEVICE_ID, &sa3_device_id);
+    sa_status status = sa_get_device_id(&sa3_device_id);
     CHECK_STATUS(status)
 
     Sec_Uint64ToBEBytes(sa3_device_id, deviceId);
