@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sa_types.h"
+#include "sa.h"
 #include "sec_adapter_processor.h"
 #include "sec_security.h"
 
@@ -56,7 +56,7 @@ Sec_Result SecRandom_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Rando
  */
 Sec_Result SecRandom_Process(Sec_RandomHandle* randomHandle, SEC_BYTE* output, SEC_SIZE outputSize) {
     CHECK_HANDLE(randomHandle)
-    int status = sa_invoke(randomHandle->processorHandle, SA_CRYPTO_RANDOM, output, outputSize);
+    int status = sa_crypto_random(output, outputSize);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }

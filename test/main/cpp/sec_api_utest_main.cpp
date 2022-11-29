@@ -1124,7 +1124,6 @@ void runConcurrentTests(SuiteCtx* suite) {
     }
     RUN_TEST(suite, testConcurrentRsa(TESTKEY_RSA2048_ENC_PUB, TESTKEY_RSA2048_ENC_PRIV, TESTKC_CONDITIONAL, 10))
     RUN_TEST(suite, testConcurrentProcessorInvoke(1000))
-
 }
 
 void runExchangeTests(SuiteCtx* suite) {

@@ -281,7 +281,7 @@ Sec_Result SecProcessor_PrintInfo(Sec_ProcessorHandle* processorHandle) {
     Sec_PrintOpenSSLVersion();
 
     sa_version version;
-    sa_status status = sa_invoke(processorHandle, SA_GET_VERSION, &version);
+    sa_status status = sa_get_version(&version);
     CHECK_STATUS(status)
 
     SEC_PRINT("specification_major: %ld, specification_minor: %ld, "
@@ -431,14 +431,6 @@ Sec_Result Sec_SetStorageDir(const char* provided_dir, const char* default_dir, 
 
 void sa_process_command(sa_command* command) {
     switch (command->command_id) {
-        case SA_GET_VERSION:
-            command->result = sa_get_version(va_arg(*command->arguments, sa_version*));
-            break;
-
-        case SA_GET_DEVICE_ID:
-            command->result = sa_get_device_id(va_arg(*command->arguments, uint64_t*));
-            break;
-
         case SA_KEY_GENERATE:
             command->result = sa_key_generate(va_arg(*command->arguments, sa_key*),
                     va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_key_type),
@@ -495,10 +487,6 @@ void sa_process_command(sa_command* command) {
         case SA_KEY_DIGEST:
             command->result = sa_key_digest(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t*),
                     va_arg(*command->arguments, sa_key), va_arg(*command->arguments, sa_digest_algorithm));
-            break;
-
-        case SA_CRYPTO_RANDOM:
-            command->result = sa_crypto_random(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
             break;
 
         case SA_CRYPTO_CIPHER_INIT:
@@ -560,10 +548,6 @@ void sa_process_command(sa_command* command) {
                     va_arg(*command->arguments, void*));
             break;
 
-        case SA_SVP_SUPPORTED:
-            command->result = sa_svp_supported();
-            break;
-
         case SA_SVP_BUFFER_CREATE:
             command->result = sa_svp_buffer_create(va_arg(*command->arguments, sa_svp_buffer*),
                     va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
@@ -608,8 +592,13 @@ void sa_process_command(sa_command* command) {
                     va_arg(*command->arguments, sa_sample*));
             break;
 
+        case SA_GET_VERSION:
+        case SA_GET_DEVICE_ID:
+        case SA_CRYPTO_RANDOM:
+            // Doesn't require a handle so called directly and not in the invoke thread.
         case SA_GET_NAME:
         case SA_SVP_BUFFER_ALLOC:
+        case SA_SVP_SUPPORTED:
             // Unused
         default:
             command->result = SA_STATUS_INTERNAL_ERROR;

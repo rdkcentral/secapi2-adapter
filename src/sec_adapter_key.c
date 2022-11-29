@@ -17,6 +17,7 @@
  */
 
 #include "sec_adapter_key.h" // NOLINT
+#include "sa.h"
 #include "sec_adapter_cipher.h"
 #include "sec_adapter_key_legacy.h"
 #include "sec_adapter_processor.h"
@@ -442,7 +443,7 @@ Sec_Result SecKey_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID
         (*keyHandle)->key_type = SecKey_GetKeyTypeForClearKeyContainer(key_container);
     } else {
         sa_header key_header;
-        sa_status status = sa_invoke(processorHandle, SA_KEY_HEADER,  &key_header, (*keyHandle)->key.handle);
+        sa_status status = sa_invoke(processorHandle, SA_KEY_HEADER, &key_header, (*keyHandle)->key.handle);
         if (status == SA_STATUS_OK) {
             (*keyHandle)->key_type = get_key_type(&key_header);
         }
@@ -744,7 +745,7 @@ Sec_Result SecKey_Derive_PBEKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJECT
                 base_key, parameters);
         CHECK_MAC_RESULT(processorHandle, status, base_key, 0)
 
-        status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, salt, (size_t)saltSize);
+        status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, salt, (size_t) saltSize);
         CHECK_MAC_RESULT(processorHandle, status, base_key, mac_context)
 
         status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, loop, sizeof(loop));
@@ -763,7 +764,7 @@ Sec_Result SecKey_Derive_PBEKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJECT
             status = sa_invoke(processorHandle, SA_CRYPTO_MAC_INIT, &mac_context, mac_algorithm, base_key, parameters);
             CHECK_MAC_RESULT(processorHandle, status, base_key, 0)
 
-            status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, mac1, (size_t)digest_length);
+            status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, mac1, (size_t) digest_length);
             CHECK_MAC_RESULT(processorHandle, status, base_key, mac_context)
 
             SEC_BYTE mac2[SEC_MAC_MAX_LEN];
@@ -979,7 +980,7 @@ Sec_Result SecKey_ECDHKeyAgreementWithKDF(Sec_KeyHandle* keyHandle, Sec_ECCRawPu
     }
 
     sa_status status = sa_invoke(keyHandle->processorHandle, SA_KEY_EXCHANGE, &shared_secret, &rights,
-            SA_KEY_EXCHANGE_ALGORITHM_ECDH, keyHandle->key.handle, other_public, (size_t)other_public_length, NULL);
+            SA_KEY_EXCHANGE_ALGORITHM_ECDH, keyHandle->key.handle, other_public, (size_t) other_public_length, NULL);
     free(other_public);
     CHECK_STATUS(status)
 
@@ -2609,7 +2610,7 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
     }
 
     // Validate the key and import it.
-    status = sa_invoke(processorHandle, SA_KEY_IMPORT, &key->handle, key_format, key_buffer, (size_t)*key_length,
+    status = sa_invoke(processorHandle, SA_KEY_IMPORT, &key->handle, key_format, key_buffer, (size_t) *key_length,
             parameters);
 
     if (cipherKeyHandle != NULL)
@@ -3413,7 +3414,7 @@ static Sec_Result unwrap_key(Sec_ProcessorHandle* processorHandle, Sec_CipherAlg
 
     Sec_Key unwrapped_key;
     sa_status status = sa_invoke(processorHandle, SA_KEY_UNWRAP, &unwrapped_key.handle, &rights, key_type,
-            key_parameters, cipher_algorithm, cipher_parameters, keyHandle->key.handle, input, (size_t)input_len);
+            key_parameters, cipher_algorithm, cipher_parameters, keyHandle->key.handle, input, (size_t) input_len);
     SEC_FREE(key_parameters);
     SEC_FREE(cipher_parameters);
     SecKey_Release(keyHandle);
@@ -3475,7 +3476,7 @@ static Sec_Result export_key(Sec_ProcessorHandle* processorHandle, Sec_Key* key,
 
     SEC_BYTE mixin[SEC_AES_BLOCK_SIZE];
     if (derivationInput == NULL)
-        sa_invoke(processorHandle, SA_CRYPTO_RANDOM, mixin, sizeof(mixin));
+        sa_crypto_random(mixin, sizeof(mixin));
     else
         memcpy(mixin, derivationInput, SEC_AES_BLOCK_SIZE);
 
@@ -3483,7 +3484,7 @@ static Sec_Result export_key(Sec_ProcessorHandle* processorHandle, Sec_Key* key,
     if (exportedKey == NULL) {
         size_t out_length = 0;
         sa_status status = sa_invoke(processorHandle, SA_KEY_EXPORT, exportedKey, &out_length, mixin,
-                (size_t)SEC_AES_BLOCK_SIZE, key->handle);
+                (size_t) SEC_AES_BLOCK_SIZE, key->handle);
         CHECK_STATUS(status)
 
         // Include the length of the derivationInput.
@@ -3493,7 +3494,7 @@ static Sec_Result export_key(Sec_ProcessorHandle* processorHandle, Sec_Key* key,
 
     size_t out_length = keyBufferLen;
     sa_status status = sa_invoke(processorHandle, SA_KEY_EXPORT, exportedKey, &out_length, mixin,
-            (size_t)SEC_AES_BLOCK_SIZE, key->handle);
+            (size_t) SEC_AES_BLOCK_SIZE, key->handle);
     CHECK_STATUS(status)
     *keyBytesWritten = out_length;
     return SEC_RESULT_SUCCESS;
