@@ -3475,10 +3475,12 @@ static Sec_Result export_key(Sec_ProcessorHandle* processorHandle, Sec_Key* key,
         SEC_BYTE* exportedKey, SEC_SIZE keyBufferLen, SEC_SIZE* keyBytesWritten) {
 
     SEC_BYTE mixin[SEC_AES_BLOCK_SIZE];
-    if (derivationInput == NULL)
-        sa_crypto_random(mixin, sizeof(mixin));
-    else
+    if (derivationInput == NULL) {
+        sa_status status = sa_crypto_random(mixin, sizeof(mixin));
+        CHECK_STATUS(status)
+    } else {
         memcpy(mixin, derivationInput, SEC_AES_BLOCK_SIZE);
+    }
 
     // Get key length.
     if (exportedKey == NULL) {
