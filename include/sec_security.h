@@ -979,8 +979,8 @@ typedef struct {
 } SEC_MAP;
 
 Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv, SEC_BYTE* input,
-        SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength, Sec_OpaqueBufferHandle** outputHandle,
-        SEC_SIZE* bytesWritten);
+        SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength,
+        Sec_OpaqueBufferHandle** opaqueBufferHandle, SEC_SIZE* bytesWritten);
 
 #ifdef __cplusplus
 }

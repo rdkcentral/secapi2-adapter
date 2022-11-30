@@ -19,14 +19,22 @@
 #ifndef SEC_SECURITY_SVP_H
 #define SEC_SECURITY_SVP_H
 
-#include "sa.h"
+#include "sa_types.h"
 #include "sec_adapter_processor.h"
 #include "sec_security.h"
+#include <pthread.h>
+
+typedef struct svp_processor_buffer_struct {
+    Sec_ProcessorHandle* processorHandle;
+    sa_svp_buffer svp_buffer;
+    struct svp_processor_buffer_struct* next;
+} svp_processor_buffer;
 
 struct Sec_OpaqueBufferHandle_struct {
-    sa_svp_buffer svp_buffer;
     void* svp_memory;
     size_t size;
+    svp_processor_buffer* handles;
+    pthread_mutex_t mutex;
 };
 
 typedef struct {
@@ -34,4 +42,8 @@ typedef struct {
     size_t offset_in_target;
     size_t bytes_to_copy;
 } SEC_CopyIndex;
+
+sa_svp_buffer get_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle);
+void release_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle);
+
 #endif // SEC_SECURITY_SVP_H

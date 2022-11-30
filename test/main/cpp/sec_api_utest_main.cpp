@@ -833,6 +833,8 @@ void runSVPTests(SuiteCtx* suite) {
                                 SEC_CIPHERALGORITHM_AES_CTR, 498))
         RUN_TEST(suite,
                 testProcessDataShiftOpaque(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM))
+        RUN_TEST(suite, testOpaqueMultiProcHandle(SEC_OBJECTID_USER_BASE, TESTKEY_AES128, TESTKC_RAW, SEC_STORAGELOC_RAM,
+                                SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, 256))
     }
 }
 
@@ -1121,6 +1123,7 @@ void runConcurrentTests(SuiteCtx* suite) {
         RUN_TEST(suite, testConcurrentRsa(TESTKEY_RSA1024_ENC_PUB, TESTKEY_RSA1024_ENC_PRIV, TESTKC_CONDITIONAL, 10))
     }
     RUN_TEST(suite, testConcurrentRsa(TESTKEY_RSA2048_ENC_PUB, TESTKEY_RSA2048_ENC_PRIV, TESTKC_CONDITIONAL, 10))
+    RUN_TEST(suite, testConcurrentProcessorInvoke(1000))
 }
 
 void runExchangeTests(SuiteCtx* suite) {
@@ -1229,6 +1232,7 @@ int testIt(int argc, char* argv[]) { // NOLINT
     TestCreds::init();
     SuiteCtx suite;
     suite.setRunParams(runParams);
+    Sec_InitOpenSSL();
 
     SEC_PRINT("\n");
     SEC_PRINT("CAPABILITY_AES256: %d\n", TestCreds::supports(CAPABILITY_AES256));

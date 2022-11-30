@@ -18,6 +18,7 @@
 
 #include "svp.h"
 #include "cipher.h"
+#include "digest.h"
 #include "test_ctx.h"
 
 #define MAX_BUFFER_SIZE (64 * 1024)
@@ -216,7 +217,6 @@ Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
     return SEC_RESULT_SUCCESS;
 }
 
-
 Sec_Result testCopyOpaque() {
     TestCtx ctx;
     if (ctx.init() != SEC_RESULT_SUCCESS) {
@@ -333,5 +333,214 @@ Sec_Result testProcessDataShiftOpaque(SEC_OBJECTID id, TestKey key, TestKc kc,
 
     return result;
 #endif
+    return SEC_RESULT_SUCCESS;
+}
+
+Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
+        Sec_CipherAlgorithm cipher_algorithm, int size) {
+    std::vector<SEC_BYTE> iv = TestCtx::random(SEC_AES_BLOCK_SIZE);
+    std::vector<SEC_BYTE> data = TestCtx::random(size);
+
+    TestCtx ctx;
+    if (ctx.init() != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_KeyHandle* keyHandle;
+    if ((keyHandle = ctx.provisionKey(id, loc, key, kc)) == nullptr) {
+        SEC_LOG_ERROR("ctx.provisionKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_CipherHandle* cipherHandle = nullptr;
+    if (SecCipher_GetInstance(ctx.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle, &iv[0], &cipherHandle) !=
+            SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecCipher_GetInstance failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    SEC_SIZE written = 0;
+    SEC_BOOL last = size % 16 == 0 ? SEC_TRUE : SEC_FALSE;
+    std::vector<SEC_BYTE> output(size);
+    if (SecCipher_Process(cipherHandle, data.data(), data.size(), last, output.data(), output.size(), &written) !=
+            SEC_RESULT_SUCCESS) {
+        SecCipher_Release(cipherHandle);
+        SEC_LOG_ERROR("SecCipher_ProcessOpaque failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    SecCipher_Release(cipherHandle);
+    auto digest = digestOpenSSL(SEC_DIGESTALGORITHM_SHA256, output);
+
+    Sec_OpaqueBufferHandle* inOpaqueBufferHandle = nullptr;
+    if (SecOpaqueBuffer_Malloc(size, &inOpaqueBufferHandle) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecOpaqueBuffer_Write(inOpaqueBufferHandle, 0, data.data(), data.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    TestCtx ctx1;
+    if (ctx1.init() != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_KeyHandle* keyHandle1;
+    if ((keyHandle1 = ctx1.provisionKey(id, loc, key, kc)) == nullptr) {
+        SEC_LOG_ERROR("ctx.provisionKey failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_CipherHandle* cipherHandle1 = nullptr;
+    if (SecCipher_GetInstance(ctx1.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle1, &iv[0], &cipherHandle1) !=
+            SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecCipher_GetInstance failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_OpaqueBufferHandle* outOpaqueBufferHandle1 = nullptr;
+    if (SecOpaqueBuffer_Malloc(size, &outOpaqueBufferHandle1) != SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
+        SecCipher_Release(cipherHandle1);
+        SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    written = 0;
+    if (SecCipher_ProcessOpaque(cipherHandle1, inOpaqueBufferHandle, outOpaqueBufferHandle1, size, last, &written) !=
+            SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
+        SecCipher_Release(cipherHandle1);
+        SEC_LOG_ERROR("SecCipher_ProcessOpaque failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle1, size, digest.data(),
+                digest.size()) != SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
+        SecCipher_Release(cipherHandle1);
+        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
+    SecCipher_Release(cipherHandle1);
+    TestCtx ctx2;
+    if (ctx2.init() != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_KeyHandle* keyHandle2;
+    if ((keyHandle2 = ctx2.provisionKey(id, loc, key, kc)) == nullptr) {
+        SEC_LOG_ERROR("ctx.provisionKey failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_CipherHandle* cipherHandle2 = nullptr;
+    if (SecCipher_GetInstance(ctx2.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle2, &iv[0], &cipherHandle2) !=
+            SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecCipher_GetInstance failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_OpaqueBufferHandle* outOpaqueBufferHandle2 = nullptr;
+    if (SecOpaqueBuffer_Malloc(size, &outOpaqueBufferHandle2) != SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
+        SecCipher_Release(cipherHandle2);
+        SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    written = 0;
+    if (SecCipher_ProcessOpaque(cipherHandle2, inOpaqueBufferHandle, outOpaqueBufferHandle2, size, last, &written) !=
+            SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
+        SecCipher_Release(cipherHandle2);
+        SEC_LOG_ERROR("SecCipher_ProcessOpaque failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle2, size, digest.data(),
+                digest.size()) != SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
+        SecCipher_Release(cipherHandle2);
+        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
+    SecCipher_Release(cipherHandle2);
+    TestCtx ctx3;
+    if (ctx3.init() != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_KeyHandle* keyHandle3;
+    if ((keyHandle3 = ctx3.provisionKey(id, loc, key, kc)) == nullptr) {
+        SEC_LOG_ERROR("ctx.provisionKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_CipherHandle* cipherHandle3 = nullptr;
+    if (SecCipher_GetInstance(ctx3.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle3, &iv[0], &cipherHandle3) !=
+            SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecCipher_GetInstance failed");
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_OpaqueBufferHandle* outOpaqueBufferHandle3 = nullptr;
+    if (SecOpaqueBuffer_Malloc(size, &outOpaqueBufferHandle3) != SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
+        SecCipher_Release(cipherHandle3);
+        SEC_LOG_ERROR("Sec_OpaqueBufferMalloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    written = 0;
+    if (SecCipher_ProcessOpaque(cipherHandle3, inOpaqueBufferHandle, outOpaqueBufferHandle3, size, last, &written) !=
+            SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
+        SecCipher_Release(cipherHandle3);
+        SEC_LOG_ERROR("SecCipher_ProcessOpaque failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle3, size, digest.data(),
+                digest.size()) != SEC_RESULT_SUCCESS) {
+        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+        SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
+        SecCipher_Release(cipherHandle3);
+        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    SecOpaqueBuffer_Free(inOpaqueBufferHandle);
+    SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
+    SecCipher_Release(cipherHandle3);
+
     return SEC_RESULT_SUCCESS;
 }
