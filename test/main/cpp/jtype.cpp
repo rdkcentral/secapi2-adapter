@@ -369,7 +369,7 @@ Sec_Result testExportKey(TestKey contentKey, TestKey encryptionKey, TestKc encKc
     exported_key.resize(SEC_KEYCONTAINER_MAX_LEN);
     SEC_SIZE exported_len;
 
-    if (SecKey_ExportKey(keyHandle, &derivation_input[0], &exported_key[0], exported_key.size(), &exported_len) !=
+    if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_key.data(), exported_key.size(), &exported_len) !=
             SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_ExportKey failed");
         return SEC_RESULT_FAILURE;
@@ -378,7 +378,7 @@ Sec_Result testExportKey(TestKey contentKey, TestKey encryptionKey, TestKc encKc
 
     //provision exported
     if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_USER_BASE, SEC_STORAGELOC_RAM, SEC_KEYCONTAINER_EXPORTED,
-                &exported_key[0], exported_key.size()) != SEC_RESULT_SUCCESS) {
+                exported_key.data(), exported_key.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_Provision failed");
         return SEC_RESULT_FAILURE;
     }

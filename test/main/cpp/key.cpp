@@ -72,8 +72,8 @@ static Sec_Result aesKeyCheck(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID
     SEC_SIZE cipher_first_len;
 
     if (SecCipher_SingleInputId(processorHandle, SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, SEC_CIPHERMODE_ENCRYPT,
-                id_first, nullptr, &clear[0], clear.size(), &cipher_first[0], cipher_first.size(), &cipher_first_len) !=
-            SEC_RESULT_SUCCESS) {
+                id_first, nullptr, clear.data(), clear.size(), cipher_first.data(), cipher_first.size(),
+                &cipher_first_len) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_SingleInputId failed");
         return SEC_RESULT_FAILURE;
     }
@@ -86,7 +86,7 @@ static Sec_Result aesKeyCheck(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID
     SEC_SIZE cipher_second_len;
 
     if (SecCipher_SingleInputId(processorHandle, SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, SEC_CIPHERMODE_ENCRYPT,
-                id_second, nullptr, &clear[0], clear.size(), &cipher_second[0], cipher_second.size(),
+                id_second, nullptr, clear.data(), clear.size(), cipher_second.data(), cipher_second.size(),
                 &cipher_second_len) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_SingleInputId failed");
         return SEC_RESULT_FAILURE;
@@ -114,8 +114,8 @@ static Sec_Result macCheck(Sec_ProcessorHandle* processorHandle, Sec_MacAlgorith
     std::vector<SEC_BYTE> mac_first;
     mac_first.resize(SEC_MAC_MAX_LEN);
     SEC_SIZE mac_first_len;
-    if (SecMac_SingleInputId(processorHandle, alg, id_first, &clear[0], clear.size(), &mac_first[0], &mac_first_len) !=
-            SEC_RESULT_SUCCESS) {
+    if (SecMac_SingleInputId(processorHandle, alg, id_first, clear.data(), clear.size(), mac_first.data(),
+                &mac_first_len) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecMac_SingleInputId failed");
         return SEC_RESULT_FAILURE;
     }
@@ -126,7 +126,7 @@ static Sec_Result macCheck(Sec_ProcessorHandle* processorHandle, Sec_MacAlgorith
     std::vector<SEC_BYTE> mac_second;
     mac_second.resize(SEC_MAC_MAX_LEN);
     SEC_SIZE mac_second_len;
-    if (SecMac_SingleInputId(processorHandle, alg, id_first, &clear[0], clear.size(), &mac_second[0],
+    if (SecMac_SingleInputId(processorHandle, alg, id_first, clear.data(), clear.size(), mac_second.data(),
                 &mac_second_len) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecMac_SingleInputId failed");
         return SEC_RESULT_FAILURE;
@@ -167,26 +167,26 @@ Sec_Result testStore(SEC_BOOL encrypt, SEC_BOOL mac) {
     std::vector<SEC_BYTE> store;
     store.resize(SEC_KEYCONTAINER_MAX_LEN);
     Sec_Result result = SecStore_StoreData(ctx.proc(), encrypt, mac, (SEC_BYTE*) SEC_UTILS_KEYSTORE_MAGIC, // NOLINT
-            &keystore_header, sizeof(keystore_header), &data[0], data.size(), &store[0], store.size());
+            &keystore_header, sizeof(keystore_header), data.data(), data.size(), store.data(), store.size());
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecStore_StoreData failed");
         return SEC_RESULT_FAILURE;
     }
 
-    store.resize(SecStore_GetStoreLen(&store[0]));
+    store.resize(SecStore_GetStoreLen(store.data()));
     TestCtx::printHex("store: ", store);
 
     //read from store
     SecUtils_KeyStoreHeader keystore_header2;
     std::vector<SEC_BYTE> extracted_data;
     extracted_data.resize(SEC_KEYCONTAINER_MAX_LEN);
-    if (SecStore_RetrieveData(ctx.proc(), mac, &keystore_header2, sizeof(keystore_header2), &extracted_data[0],
-                extracted_data.size(), &store[0], store.size()) != SEC_RESULT_SUCCESS) {
+    if (SecStore_RetrieveData(ctx.proc(), mac, &keystore_header2, sizeof(keystore_header2), extracted_data.data(),
+                extracted_data.size(), store.data(), store.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecStore_RetrieveData failed");
         return SEC_RESULT_FAILURE;
     }
 
-    extracted_data.resize(SecStore_GetDataLen(&store[0]));
+    extracted_data.resize(SecStore_GetDataLen(store.data()));
     TestCtx::printHex("extracted_data: ", extracted_data);
 
     if (data != extracted_data) {
@@ -220,16 +220,16 @@ Sec_Result testStoreProvision(SEC_OBJECTID id, SEC_BOOL encrypt, SEC_BOOL mac) {
     std::vector<SEC_BYTE> store;
     store.resize(SEC_KEYCONTAINER_MAX_LEN);
     if (SecStore_StoreData(ctx.proc(), encrypt, mac, (SEC_BYTE*) SEC_UTILS_KEYSTORE_MAGIC, &keystore_header, // NOLINT
-                sizeof(keystore_header), &data[0], data.size(), &store[0], store.size()) !=
+                sizeof(keystore_header), data.data(), data.size(), store.data(), store.size()) !=
             SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecStore_StoreData failed");
         return SEC_RESULT_FAILURE;
     }
-    store.resize(SecStore_GetStoreLen(&store[0]));
+    store.resize(SecStore_GetStoreLen(store.data()));
     TestCtx::printHex("store: ", store);
 
     //provision store
-    if (SecKey_Provision(ctx.proc(), id, SEC_STORAGELOC_RAM_SOFT_WRAPPED, SEC_KEYCONTAINER_STORE, &store[0],
+    if (SecKey_Provision(ctx.proc(), id, SEC_STORAGELOC_RAM_SOFT_WRAPPED, SEC_KEYCONTAINER_STORE, store.data(),
                 store.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_Provision failed");
         return SEC_RESULT_FAILURE;
@@ -577,7 +577,7 @@ Sec_Result testKeyDeriveHKDF(SEC_OBJECTID id, Sec_KeyType keyType, Sec_StorageLo
     std::vector<SEC_BYTE> info = TestCtx::random(17);
     TestCtx::printHex("info", info);
 
-    if (SecKey_Derive_HKDF(ctx.proc(), id, keyType, loc, macAlgorithm, &nonce[0], useSalt ? &salt[0] : nullptr,
+    if (SecKey_Derive_HKDF(ctx.proc(), id, keyType, loc, macAlgorithm, nonce.data(), useSalt ? salt.data() : nullptr,
                 useSalt ? salt.size() : 0, &info[0], info.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_Derive_HKDF failed");
         return SEC_RESULT_FAILURE;

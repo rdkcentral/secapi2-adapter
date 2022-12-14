@@ -711,7 +711,7 @@ Sec_Result SecKey_Derive_PBEKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJECT
     SEC_BYTE loop[] = {0, 0, 0, 0};
     SEC_BYTE out_key[SEC_AES_KEY_MAX_LEN];
 
-    if (!SecKey_IsSymmetric(type_derived)) {
+    if (!SecKey_IsSymetric(type_derived)) {
         SEC_LOG_ERROR("Only symmetric keys can be derived");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -962,7 +962,7 @@ Sec_Result SecKey_ECDHKeyAgreementWithKDF(Sec_KeyHandle* keyHandle, Sec_ECCRawPu
         return SEC_RESULT_INVALID_PARAMETERS;
     }
 
-    if (!SecKey_IsSymmetric(type_derived)) {
+    if (!SecKey_IsSymetric(type_derived)) {
         SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -1312,7 +1312,7 @@ Sec_KeyType SecKey_GetRSAKeyTypeForByteLength(int numBytes) {
  *
  * @return 1 if key type is symmetric, 0 if asymmetric.
  */
-SEC_BOOL SecKey_IsSymmetric(Sec_KeyType type) {
+SEC_BOOL SecKey_IsSymetric(Sec_KeyType type) {
     switch (type) {
         case SEC_KEYTYPE_AES_128:
         case SEC_KEYTYPE_AES_256:
@@ -3293,7 +3293,7 @@ static Sec_Result derive_hkdf(Sec_ProcessorHandle* processorHandle, Sec_MacAlgor
         return SEC_RESULT_FAILURE;
     }
 
-    if (!SecKey_IsSymmetric(typeDerived)) {
+    if (!SecKey_IsSymetric(typeDerived)) {
         SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -3325,7 +3325,7 @@ static Sec_Result derive_kdf_concat(Sec_ProcessorHandle* processorHandle, Sec_Di
         return SEC_RESULT_FAILURE;
     }
 
-    if (!SecKey_IsSymmetric(typeDerived)) {
+    if (!SecKey_IsSymetric(typeDerived)) {
         SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -3350,7 +3350,7 @@ static Sec_Result derive_kdf_concat(Sec_ProcessorHandle* processorHandle, Sec_Di
 static Sec_Result derive_kdf_cmac(Sec_ProcessorHandle* processorHandle, Sec_KeyType typeDerived,
         const SEC_BYTE* otherData, SEC_SIZE otherDataSize, const SEC_BYTE* counter, SEC_SIZE counterSize,
         sa_key baseKey, sa_key* derived_key) {
-    if (!SecKey_IsSymmetric(typeDerived)) {
+    if (!SecKey_IsSymetric(typeDerived)) {
         SEC_LOG_ERROR("Can only derive symmetric keys");
         return SEC_RESULT_INVALID_PARAMETERS;
     }

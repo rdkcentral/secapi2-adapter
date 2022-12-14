@@ -36,7 +36,7 @@ Sec_Result testRandom(Sec_RandomAlgorithm alg, SEC_SIZE size) {
     std::vector<SEC_BYTE> out;
     out.resize(size);
 
-    if (SecRandom_Process(randomHandle, &out[0], out.size()) != SEC_RESULT_SUCCESS) {
+    if (SecRandom_Process(randomHandle, out.data(), out.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecRandom_Process failed");
         return SEC_RESULT_FAILURE;
     }

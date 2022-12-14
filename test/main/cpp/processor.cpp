@@ -63,7 +63,7 @@ Sec_Result testProcessorGetDeviceId() {
     std::vector<SEC_BYTE> deviceId(SEC_DEVICEID_LEN);
     std::vector<SEC_BYTE> zeros(SEC_DEVICEID_LEN);
 
-    if (SecProcessor_GetDeviceId(ctx.proc(), &deviceId[0]) != SEC_RESULT_SUCCESS) {
+    if (SecProcessor_GetDeviceId(ctx.proc(), deviceId.data()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecProcessor_GetDeviceId failed");
         return SEC_RESULT_FAILURE;
     }

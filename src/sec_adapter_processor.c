@@ -72,6 +72,8 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return SEC_RESULT_FAILURE;
     }
 
+    Sec_InitOpenSSL();
+
     char* tempAppDir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
     if (tempAppDir == NULL) {
         SEC_LOG_ERROR("Calloc failed");

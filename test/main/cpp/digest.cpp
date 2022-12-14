@@ -26,12 +26,12 @@ std::vector<SEC_BYTE> digestOpenSSL(Sec_DigestAlgorithm alg, const std::vector<S
     switch (alg) {
         case SEC_DIGESTALGORITHM_SHA1:
             digest.resize(20);
-            SHA1(&input[0], input.size(), &digest[0]);
+            SHA1(input.data(), input.size(), digest.data());
             return digest;
 
         case SEC_DIGESTALGORITHM_SHA256:
             digest.resize(32);
-            SHA256(&input[0], input.size(), &digest[0]);
+            SHA256(input.data(), input.size(), digest.data());
             return digest;
 
         default:
@@ -70,7 +70,7 @@ std::vector<SEC_BYTE> digestSecApi(TestCtx* ctx, Sec_DigestAlgorithm alg, const 
     }
 
     //last input
-    if (ctx->releaseDigest(digestHandle, &output[0], &written) != SEC_RESULT_SUCCESS) {
+    if (ctx->releaseDigest(digestHandle, output.data(), &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_Process failed");
         return {};
     }
@@ -98,7 +98,7 @@ std::vector<SEC_BYTE> digestSecApi(TestCtx* ctx, Sec_DigestAlgorithm alg, Sec_Ke
         return {};
     }
 
-    if (ctx->releaseDigest(digestHandle, &output[0], &written) != SEC_RESULT_SUCCESS) {
+    if (ctx->releaseDigest(digestHandle, output.data(), &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_Process failed");
         return {};
     }
