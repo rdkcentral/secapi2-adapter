@@ -108,7 +108,7 @@ Sec_Result testKeyCtrlKeyNotYetAvail(int version, const char* alg) {
     Sec_CipherHandle* cipherHandle = nullptr;
     Sec_KeyHandle* keyHandle = nullptr;
     SEC_BYTE iv[SEC_AES_BLOCK_SIZE] = {0x01};
-    const char* notBeforeTimeStr = "2022-12-09T19:53:06Z";
+    const char* notBeforeTimeStr = "2110-12-09T19:53:06Z";
 
     if (ctx.init() != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("TestCtx.init failed");
@@ -236,9 +236,9 @@ Sec_Result testKeyCtrlUnwrapWithKeyUsage(int version, const char* alg, TestKey c
             break;
         }
 
-        if (SecKey_GenerateWrappedKeyAsn1(&wrapped[0], wrapped.size(), SEC_KEYTYPE_AES_128,
+        if (SecKey_GenerateWrappedKeyAsn1(wrapped.data(), wrapped.size(), SEC_KEYTYPE_AES_128,
                     g_default_jtype_data.provisionId, nullptr, SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING,
-                    &asn1[0], asn1.size(), &asn1_len) != SEC_RESULT_SUCCESS) {
+                    asn1.data(), asn1.size(), &asn1_len) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_GenerateWrappedKeyAsn1 failed");
             break;
         }
@@ -247,7 +247,7 @@ Sec_Result testKeyCtrlUnwrapWithKeyUsage(int version, const char* alg, TestKey c
         //provision wrapped
         SEC_PRINT("Provisioning wrapped\n");
         if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_USER_BASE + 1, SEC_STORAGELOC_RAM, SEC_KEYCONTAINER_ASN1,
-                    &asn1[0], asn1.size()) != SEC_RESULT_SUCCESS) {
+                    asn1.data(), asn1.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_Provision failed");
             break;
         }
@@ -307,8 +307,8 @@ Sec_Result testKeyCtrlUnwrapWithDataUsage(int version, const char* alg) {
             break;
         }
 
-        if (SecKey_GenerateWrappedKeyAsn1(&wrapped[0], wrapped.size(), SEC_KEYTYPE_AES_128, SEC_OBJECTID_USER_BASE,
-                    nullptr, SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, &asn1[0], asn1.size(), &asn1_len) !=
+        if (SecKey_GenerateWrappedKeyAsn1(wrapped.data(), wrapped.size(), SEC_KEYTYPE_AES_128, SEC_OBJECTID_USER_BASE,
+                    nullptr, SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, asn1.data(), asn1.size(), &asn1_len) !=
                 SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_GenerateWrappedKeyAsn1 failed");
             break;
@@ -318,7 +318,7 @@ Sec_Result testKeyCtrlUnwrapWithDataUsage(int version, const char* alg) {
         //provision wrapped
         SEC_PRINT("Provisioning wrapped\n");
         if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_USER_BASE + 1, SEC_STORAGELOC_RAM, SEC_KEYCONTAINER_ASN1,
-                    &asn1[0], asn1.size()) != SEC_RESULT_SUCCESS) {
+                    asn1.data(), asn1.size()) != SEC_RESULT_SUCCESS) {
             //this will fail on some platforms, others will fail when wielding cipher
             result = SEC_RESULT_SUCCESS;
             break;
@@ -333,8 +333,8 @@ Sec_Result testKeyCtrlUnwrapWithDataUsage(int version, const char* alg) {
         }
 
         /* export the jtype and re-provision as exported to test exported logic as well */
-        if (SecKey_ExportKey(keyHandle, &derivation_input[0], &exported_key[0], exported_key.size(), &exported_len) !=
-                SEC_RESULT_SUCCESS) {
+        if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_key.data(), exported_key.size(),
+                    &exported_len) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_Export failed");
             break;
         }
@@ -344,7 +344,7 @@ Sec_Result testKeyCtrlUnwrapWithDataUsage(int version, const char* alg) {
 
         /* provision exported */
         if (SecKey_Provision(ctx.proc(), g_default_jtype_data.provisionId, SEC_STORAGELOC_RAM,
-                    SEC_KEYCONTAINER_EXPORTED, &exported_key[0], exported_len) != SEC_RESULT_SUCCESS) {
+                    SEC_KEYCONTAINER_EXPORTED, exported_key.data(), exported_len) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_Provision failed for exported key");
             break;
         }
@@ -463,7 +463,7 @@ Sec_Result testKeyCtrlProvision32bit2038(int version, const char* alg) {
     }
 #else
     if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_USER_BASE, SEC_STORAGELOC_RAM, SEC_KEYCONTAINER_JTYPE,
-                reinterpret_cast<SEC_BYTE*>(&jtype[0]), jtype.size()) == SEC_RESULT_SUCCESS) {
+                reinterpret_cast<SEC_BYTE*>(jtype.data()), jtype.size()) == SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Expecting SecKey_Provision to fail on jtype with date '%s'", notOnOrAfter);
         return SEC_RESULT_FAILURE;
     }
@@ -509,8 +509,8 @@ Sec_Result testKeyCtrlExportUnCachable(int version, const char* alg) {
         }
 
         //export j-type key
-        if (SecKey_ExportKey(keyHandle, &derivation_input[0], &exported_key[0], exported_key.size(), &exported_len) ==
-                SEC_RESULT_SUCCESS) {
+        if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_key.data(), exported_key.size(),
+                    &exported_len) == SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("Expected SecKey_ExportKey to fail with cachable flag set to false");
             break;
         }
@@ -669,7 +669,7 @@ Sec_Result testKeyCtrlExportEcc(TestKc kc) {
     }
 
     if (SecSignature_SingleInputId(ctx.proc(), SEC_SIGNATUREALGORITHM_ECDSA_NISTP256, SEC_SIGNATUREMODE_SIGN, priv_id,
-                &clear[0], clear.size(), &signature[0], &signature_size) != SEC_RESULT_SUCCESS) {
+                clear.data(), clear.size(), signature.data(), &signature_size) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecSignature_SingleInputId failed on signing with priv ecc key");
         return SEC_RESULT_FAILURE;
     }
@@ -682,7 +682,7 @@ Sec_Result testKeyCtrlExportEcc(TestKc kc) {
     }
 
     /* export priv key */
-    if (SecKey_ExportKey(keyHandle, &derivation_input[0], exported_buffer, sizeof(exported_buffer),
+    if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_buffer, sizeof(exported_buffer),
                 &exported_size) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_Export failed for private ecc");
         return SEC_RESULT_FAILURE;
@@ -697,7 +697,7 @@ Sec_Result testKeyCtrlExportEcc(TestKc kc) {
 
     signature.resize(512);
     if (SecSignature_SingleInputId(ctx.proc(), SEC_SIGNATUREALGORITHM_ECDSA_NISTP256, SEC_SIGNATUREMODE_VERIFY, priv_id,
-                &clear[0], clear.size(), &signature[0], &signature_size) != SEC_RESULT_SUCCESS) {
+                clear.data(), clear.size(), signature.data(), &signature_size) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecSignature_SingleInputId failed on verification with priv ecc key");
         return SEC_RESULT_FAILURE;
     }
@@ -768,8 +768,8 @@ Sec_Result testKeyCtrlExportAes(TestKey aesKey, Sec_StorageLoc location) {
 
     do {
         //encrypt
-        if (SecCipher_SingleInputId(ctx.proc(), alg, SEC_CIPHERMODE_ENCRYPT, id, nullptr, &clear[0], clear.size(),
-                    &encrypted[0], encrypted.size(), &enc_len) != SEC_RESULT_SUCCESS) {
+        if (SecCipher_SingleInputId(ctx.proc(), alg, SEC_CIPHERMODE_ENCRYPT, id, nullptr, clear.data(), clear.size(),
+                    encrypted.data(), encrypted.size(), &enc_len) != SEC_RESULT_SUCCESS) {
 
             SEC_LOG_ERROR("Encrypt failed");
             break;
@@ -780,12 +780,13 @@ Sec_Result testKeyCtrlExportAes(TestKey aesKey, Sec_StorageLoc location) {
             break;
         }
         // get size
-        if (SecKey_ExportKey(keyHandle, &derivation_input[0], nullptr, 0, &exported_key_len2) != SEC_RESULT_SUCCESS) {
+        if (SecKey_ExportKey(keyHandle, derivation_input.data(), nullptr, 0,
+                    &exported_key_len2) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_ExportKey failed for key size");
             break;
         }
-        if (SecKey_ExportKey(keyHandle, &derivation_input[0], exported_key, sizeof(exported_key), &exported_key_len) !=
-                SEC_RESULT_SUCCESS) {
+        if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_key, sizeof(exported_key),
+                    &exported_key_len) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_ExportKey failed");
             break;
         }
@@ -808,8 +809,8 @@ Sec_Result testKeyCtrlExportAes(TestKey aesKey, Sec_StorageLoc location) {
         }
 
         // test decrypt with exported key
-        if (SecCipher_SingleInputId(ctx.proc(), alg, SEC_CIPHERMODE_DECRYPT, id, nullptr, &encrypted[0],
-                    encrypted.size(), &decrypted[0], decrypted.size(), &enc_len) != SEC_RESULT_SUCCESS) {
+        if (SecCipher_SingleInputId(ctx.proc(), alg, SEC_CIPHERMODE_DECRYPT, id, nullptr, encrypted.data(),
+                    encrypted.size(), decrypted.data(), decrypted.size(), &enc_len) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("Decrypt failed");
             break;
         }
@@ -852,7 +853,8 @@ Sec_Result testKeyCtrlExportDerived() {
     std::vector<SEC_BYTE> input = TestCtx::random(25);
     TestCtx::printHex("input", input);
 
-    if (SecKey_Derive_VendorAes128(ctx.proc(), id, SEC_STORAGELOC_RAM, &input[0], input.size()) != SEC_RESULT_SUCCESS) {
+    if (SecKey_Derive_VendorAes128(ctx.proc(), id, SEC_STORAGELOC_RAM, input.data(),
+                input.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_Derive_VendorAes128 failed");
         return SEC_RESULT_FAILURE;
     }
@@ -864,15 +866,15 @@ Sec_Result testKeyCtrlExportDerived() {
         }
 
         if (SecCipher_SingleInputId(ctx.proc(), SEC_CIPHERALGORITHM_AES_ECB_NO_PADDING, SEC_CIPHERMODE_ENCRYPT, id,
-                    nullptr, &derivation_input[0], derivation_input.size(), enc_output, sizeof(enc_output),
+                    nullptr, derivation_input.data(), derivation_input.size(), enc_output, sizeof(enc_output),
                     &enc_output_len) != SEC_RESULT_SUCCESS) {
 
             SEC_LOG_ERROR("Encrypt failed");
             break;
         }
 
-        if (SecKey_ExportKey(keyHandle, &derivation_input[0], exported_key, sizeof(exported_key), &exported_key_len) !=
-                SEC_RESULT_SUCCESS) {
+        if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_key, sizeof(exported_key),
+                    &exported_key_len) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_ExportKey failed for derived key type");
             break;
         }
@@ -901,11 +903,11 @@ Sec_Result testKeyCtrlExportDerived() {
             SEC_LOG_ERROR("Enc output size mismatch, expected %d, %d", derivation_input.size(), enc_output_len2);
             break;
         }
-        Sec_PrintHex(&derivation_input[0], derivation_input.size());
+        Sec_PrintHex(derivation_input.data(), derivation_input.size());
         SEC_PRINT("\n");
         Sec_PrintHex(enc_output2, enc_output_len2);
         SEC_PRINT("\n");
-        if (memcmp(&derivation_input[0], enc_output2, enc_output_len2) != 0) {
+        if (memcmp(derivation_input.data(), enc_output2, enc_output_len2) != 0) {
             SEC_LOG_ERROR("Enc output mismatch");
             break;
         }
@@ -1358,7 +1360,7 @@ Sec_Result testKeyCtrlCipherFailsSvpNonOpaque(int version, const char* alg, Sec_
     SEC_BYTE cipher_text[SEC_AES_BLOCK_SIZE];
     SEC_SIZE bytesWritten = 0;
     const char* notBeforeTimeStr = "2010-12-09T19:53:06Z";
-    const char* notOnOrAfterTimeStr = "2022-12-09T19:53:06Z";
+    const char* notOnOrAfterTimeStr = "2110-12-09T19:53:06Z";
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
     std::string b64rights;
 
@@ -1423,7 +1425,7 @@ Sec_Result testKeyCtrlCipherSvpOpaque(int version, const char* alg, TestKey cont
     Sec_OpaqueBufferHandle* cipherOpaqueBufferHandle = nullptr;
     SEC_SIZE bytesWritten = 0;
     const char* notBeforeTimeStr = "2010-12-09T19:53:06Z";
-    const char* notOnOrAfterTimeStr = "2022-12-09T19:53:06Z";
+    const char* notOnOrAfterTimeStr = "2110-12-09T19:53:06Z";
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
     std::string b64rights;
     SEC_BYTE clear_data[SEC_AES_BLOCK_SIZE] = {0x01};
@@ -1508,7 +1510,7 @@ Sec_Result testKeyCtrlCipherSvpDataShiftOpaque(int version, const char* alg) {
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
     std::string b64rights;
     const char *notBeforeTimeStr = "2010-12-09T19:53:06Z";
-    const char *notOnOrAfterTimeStr = "2022-12-09T19:53:06Z";
+    const char *notOnOrAfterTimeStr = "2110-12-09T19:53:06Z";
     TestCtx ctx;
     Sec_OpaqueBufferHandle *inputHandle1 = nullptr;
     Sec_OpaqueBufferHandle *inputHandle2 = nullptr;
@@ -1614,7 +1616,7 @@ Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey conte
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
     std::string b64rights;
     const char* notBeforeTimeStr = "2010-12-09T19:53:06Z";
-    const char* notOnOrAfterTimeStr = "2022-12-09T19:53:06Z";
+    const char* notOnOrAfterTimeStr = "2110-12-09T19:53:06Z";
     SEC_SIZE written = 0;
     Sec_CipherHandle* cipherHandle = nullptr;
     Sec_KeyHandle* keyHandle = nullptr;
@@ -1712,7 +1714,7 @@ Sec_Result testKeyCtrlProcessCtrDataShiftFailsSvpNonOpaque(int version, const ch
     SEC_BYTE cipher_text[SEC_AES_BLOCK_SIZE];
     SEC_SIZE bytesWritten = 0;
     const char* notBeforeTimeStr = "2010-12-09T19:53:06Z";
-    const char* notOnOrAfterTimeStr = "2022-12-09T19:53:06Z";
+    const char* notOnOrAfterTimeStr = "2110-12-09T19:53:06Z";
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
     std::string b64rights;
 

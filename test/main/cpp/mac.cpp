@@ -30,28 +30,28 @@ std::vector<SEC_BYTE> macOpenSSL(Sec_MacAlgorithm alg, const std::vector<SEC_BYT
     switch (alg) {
         case SEC_MACALGORITHM_HMAC_SHA1:
             mac.resize(20);
-            HMAC(EVP_sha1(), &openssl_key[0], static_cast<int>(openssl_key.size()), &input[0], input.size(), &mac[0],
-                    &mac_len);
+            HMAC(EVP_sha1(), openssl_key.data(), static_cast<int>(openssl_key.size()), input.data(), input.size(),
+                    mac.data(), &mac_len);
             return mac;
 
         case SEC_MACALGORITHM_HMAC_SHA256:
             mac.resize(32);
-            HMAC(EVP_sha256(), &openssl_key[0], static_cast<int>(openssl_key.size()), &input[0], input.size(), &mac[0],
-                    &mac_len);
+            HMAC(EVP_sha256(), openssl_key.data(), static_cast<int>(openssl_key.size()), input.data(), input.size(),
+                    mac.data(), &mac_len);
             return mac;
 
         case SEC_MACALGORITHM_CMAC_AES_128: {
             mac.resize(SEC_AES_BLOCK_SIZE);
             cmac_ctx = CMAC_CTX_new();
-            if (CMAC_Init(cmac_ctx, &openssl_key[0], openssl_key.size(),
+            if (CMAC_Init(cmac_ctx, openssl_key.data(), openssl_key.size(),
                         openssl_key.size() == SEC_AES_BLOCK_SIZE ? EVP_aes_128_cbc() : EVP_aes_256_cbc(), nullptr) !=
                     OPENSSL_SUCCESS) {
                 SEC_LOG_ERROR("Comcast_CMAC_Init failed");
                 return {};
             }
-            CMAC_Update(cmac_ctx, &input[0], input.size());
+            CMAC_Update(cmac_ctx, input.data(), input.size());
             size_t outl;
-            CMAC_Final(cmac_ctx, &mac[0], &outl);
+            CMAC_Final(cmac_ctx, mac.data(), &outl);
             mac_len = outl;
             CMAC_CTX_free(cmac_ctx);
             return mac;
@@ -78,28 +78,28 @@ std::vector<SEC_BYTE> macOpenSSL(Sec_MacAlgorithm alg, TestKey key, const std::v
     switch (alg) {
         case SEC_MACALGORITHM_HMAC_SHA1:
             mac.resize(20);
-            HMAC(EVP_sha1(), &openssl_key[0], static_cast<int>(openssl_key.size()), &input[0], input.size(), &mac[0],
-                    &mac_len);
+            HMAC(EVP_sha1(), openssl_key.data(), static_cast<int>(openssl_key.size()), input.data(), input.size(),
+                    mac.data(), &mac_len);
             return mac;
 
         case SEC_MACALGORITHM_HMAC_SHA256:
             mac.resize(32);
-            HMAC(EVP_sha256(), &openssl_key[0], static_cast<int>(openssl_key.size()), &input[0], input.size(), &mac[0],
-                    &mac_len);
+            HMAC(EVP_sha256(), openssl_key.data(), static_cast<int>(openssl_key.size()), input.data(), input.size(),
+                    mac.data(), &mac_len);
             return mac;
 
         case SEC_MACALGORITHM_CMAC_AES_128: {
             mac.resize(SEC_AES_BLOCK_SIZE);
             cmac_ctx = CMAC_CTX_new();
-            if (CMAC_Init(cmac_ctx, &openssl_key[0], openssl_key.size(),
+            if (CMAC_Init(cmac_ctx, openssl_key.data(), openssl_key.size(),
                         openssl_key.size() == SEC_AES_BLOCK_SIZE ? EVP_aes_128_cbc() : EVP_aes_256_cbc(), nullptr) !=
                     OPENSSL_SUCCESS) {
                 SEC_LOG_ERROR("Comcast_CMAC_Init failed");
                 return {};
             }
-            CMAC_Update(cmac_ctx, &input[0], input.size());
+            CMAC_Update(cmac_ctx, input.data(), input.size());
             size_t outl;
-            CMAC_Final(cmac_ctx, &mac[0], &outl);
+            CMAC_Final(cmac_ctx, mac.data(), &outl);
             mac_len = outl;
             CMAC_CTX_free(cmac_ctx);
             return mac;
@@ -139,7 +139,7 @@ std::vector<SEC_BYTE> macSecApi(TestCtx* ctx, Sec_MacAlgorithm alg, Sec_KeyHandl
         inputProcessed += inputSize;
     }
 
-    if (ctx->releaseMac(macHandle, &output[0], &written) != SEC_RESULT_SUCCESS) {
+    if (ctx->releaseMac(macHandle, output.data(), &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_Process failed");
         return {};
     }
@@ -168,7 +168,7 @@ std::vector<SEC_BYTE> macSecApi(TestCtx* ctx, Sec_MacAlgorithm alg, Sec_KeyHandl
         return {};
     }
 
-    if (ctx->releaseMac(macHandle, &output[0], &written) != SEC_RESULT_SUCCESS) {
+    if (ctx->releaseMac(macHandle, output.data(), &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_Process failed");
         return {};
     }
@@ -282,7 +282,7 @@ Sec_Result macCheck(Sec_ProcessorHandle* processorHandle, Sec_MacAlgorithm alg, 
     std::vector<SEC_BYTE> clear = TestCtx::random(256);
     TestCtx::printHex("clear", clear);
 
-    if (SecMac_SingleInputId(processorHandle, alg, id, &clear[0], clear.size(), &mac_secapi[0], &mac_len) !=
+    if (SecMac_SingleInputId(processorHandle, alg, id, clear.data(), clear.size(), mac_secapi.data(), &mac_len) !=
             SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecMac_SingleInputId failed");
         return SEC_RESULT_FAILURE;

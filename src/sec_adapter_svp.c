@@ -299,6 +299,11 @@ Sec_Result SecOpaqueBuffer_Check(Sec_DigestAlgorithm digestAlgorithm, Sec_Opaque
         sa_status status = sa_invoke(opaqueBufferHandle->handles->processorHandle, SA_SVP_BUFFER_CHECK,
                 opaqueBufferHandle->handles->svp_buffer, (size_t) 0, (size_t) length, algorithm, expected,
                 (size_t) expectedLength);
+
+        // Ignore the result if not supported or allowed.
+        if (status == SA_STATUS_OPERATION_NOT_SUPPORTED || status == SA_STATUS_OPERATION_NOT_ALLOWED)
+            return SEC_RESULT_SUCCESS;
+
         CHECK_STATUS(status)
     } else {
         sa_svp_buffer svp_buffer;
@@ -313,6 +318,11 @@ Sec_Result SecOpaqueBuffer_Check(Sec_DigestAlgorithm digestAlgorithm, Sec_Opaque
         void* svp_memory;
         size_t svp_size;
         sa_svp_buffer_release(&svp_memory, &svp_size, svp_buffer);
+
+        // Ignore the result if not supported or allowed.
+        if (status == SA_STATUS_OPERATION_NOT_SUPPORTED || status == SA_STATUS_OPERATION_NOT_ALLOWED)
+            return SEC_RESULT_SUCCESS;
+
         CHECK_STATUS(status)
     }
 

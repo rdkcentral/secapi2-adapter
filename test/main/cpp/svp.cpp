@@ -119,14 +119,14 @@ Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Stora
         return SEC_RESULT_FAILURE;
     }
 
-    if (SecOpaqueBuffer_Write(opaqueBufferHandle, 0, &input[0], input.size()) != SEC_RESULT_SUCCESS) {
+    if (SecOpaqueBuffer_Write(opaqueBufferHandle, 0, input.data(), input.size()) != SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(opaqueBufferHandle);
         SecCipher_Release(cipherHandle);
         SEC_LOG_ERROR("Sec_OpaqueBufferWrite failed");
         return SEC_RESULT_FAILURE;
     }
 
-    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, SEC_AES_BLOCK_SIZE, &expected[0]) !=
+    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, SEC_AES_BLOCK_SIZE, expected.data()) !=
             SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(opaqueBufferHandle);
         SecCipher_Release(cipherHandle);
@@ -135,19 +135,19 @@ Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Stora
     }
 
     /* 2.2 checks for 'checkLength' arg */
-    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, 8, &expected[0]) != SEC_RESULT_SUCCESS) {
+    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, 8, expected.data()) != SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(opaqueBufferHandle);
         SecCipher_Release(cipherHandle);
         SEC_LOG_ERROR("SecCipher_KeyCheckOpaque failed");
         return SEC_RESULT_FAILURE;
     }
-    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, 7, &expected[0]) == SEC_RESULT_SUCCESS) {
+    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, 7, expected.data()) == SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(opaqueBufferHandle);
         SecCipher_Release(cipherHandle);
         SEC_LOG_ERROR("Expected SecCipher_KeyCheckOpaque to fail with checkLength < 8");
         return SEC_RESULT_FAILURE;
     }
-    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, 17, &expected[0]) == SEC_RESULT_SUCCESS) {
+    if (SecCipher_KeyCheckOpaque(cipherHandle, opaqueBufferHandle, 17, expected.data()) == SEC_RESULT_SUCCESS) {
         SecOpaqueBuffer_Free(opaqueBufferHandle);
         SecCipher_Release(cipherHandle);
         SEC_LOG_ERROR("Expected SecCipher_KeyCheckOpaque to fail with checkLength > 16");
@@ -177,8 +177,8 @@ Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
 
     std::vector<SEC_BYTE> iv = TestCtx::random(SEC_AES_BLOCK_SIZE);
     Sec_CipherHandle* cipherHandle = nullptr;
-    if (SecCipher_GetInstance(ctx.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle, &iv[0], &cipherHandle) !=
-            SEC_RESULT_SUCCESS) {
+    if (SecCipher_GetInstance(ctx.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle, iv.data(),
+                &cipherHandle) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_GetInstance failed");
         return SEC_RESULT_FAILURE;
     }
@@ -284,7 +284,7 @@ Sec_Result testProcessDataShiftOpaque(SEC_OBJECTID id, TestKey key, TestKc kc,
     Sec_CipherHandle *cipherHandle = nullptr;
     if (!= SEC_RESULT_SUCCESS) SecCipher_GetInstance(ctx.proc(),
                                                     SEC_CIPHERALGORITHM_AES_CTR, SEC_CIPHERMODE_DECRYPT, handle,
-                                                    &iv[0], &cipherHandle)) {
+                                                    iv.data(), &cipherHandle)) {
         SEC_LOG_ERROR("SecCipher_GetInstance failed");
         break;
     }
@@ -354,8 +354,8 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
     }
 
     Sec_CipherHandle* cipherHandle = nullptr;
-    if (SecCipher_GetInstance(ctx.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle, &iv[0], &cipherHandle) !=
-            SEC_RESULT_SUCCESS) {
+    if (SecCipher_GetInstance(ctx.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle, iv.data(),
+                &cipherHandle) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_GetInstance failed");
         return SEC_RESULT_FAILURE;
     }
@@ -400,8 +400,8 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
     }
 
     Sec_CipherHandle* cipherHandle1 = nullptr;
-    if (SecCipher_GetInstance(ctx1.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle1, &iv[0], &cipherHandle1) !=
-            SEC_RESULT_SUCCESS) {
+    if (SecCipher_GetInstance(ctx1.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle1, iv.data(),
+                &cipherHandle1) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_GetInstance failed");
         SecOpaqueBuffer_Free(inOpaqueBufferHandle);
         return SEC_RESULT_FAILURE;
@@ -454,8 +454,8 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
     }
 
     Sec_CipherHandle* cipherHandle2 = nullptr;
-    if (SecCipher_GetInstance(ctx2.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle2, &iv[0], &cipherHandle2) !=
-            SEC_RESULT_SUCCESS) {
+    if (SecCipher_GetInstance(ctx2.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle2, iv.data(),
+                &cipherHandle2) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_GetInstance failed");
         SecOpaqueBuffer_Free(inOpaqueBufferHandle);
         SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
@@ -504,8 +504,8 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
     }
 
     Sec_CipherHandle* cipherHandle3 = nullptr;
-    if (SecCipher_GetInstance(ctx3.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle3, &iv[0], &cipherHandle3) !=
-            SEC_RESULT_SUCCESS) {
+    if (SecCipher_GetInstance(ctx3.proc(), cipher_algorithm, SEC_CIPHERMODE_DECRYPT, keyHandle3, iv.data(),
+                &cipherHandle3) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_GetInstance failed");
         SecOpaqueBuffer_Free(inOpaqueBufferHandle);
         return SEC_RESULT_FAILURE;

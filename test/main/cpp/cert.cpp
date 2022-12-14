@@ -72,12 +72,12 @@ Sec_Result testCertExport(SEC_OBJECTID id, TestCert cert, Sec_StorageLoc loc) {
 
     std::vector<SEC_BYTE> out;
     out.resize(written);
-    if (SecCertificate_Export(certificateHandle, &out[0], out.size(), &written) != SEC_RESULT_SUCCESS) {
+    if (SecCertificate_Export(certificateHandle, out.data(), out.size(), &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecBundle_Export failed");
         return SEC_RESULT_FAILURE;
     }
 
-    X509* x509 = DerToX509(&out[0], out.size());
+    X509* x509 = DerToX509(out.data(), out.size());
     if (x509 == nullptr) {
         SEC_LOG_ERROR("DerToX509 failed");
         return SEC_RESULT_FAILURE;
@@ -119,12 +119,12 @@ Sec_Result testCertExportNoSha(SEC_OBJECTID id, TestCert cert) {
 
     std::vector<SEC_BYTE> out;
     out.resize(written);
-    if (SecCertificate_Export(certificateHandle, &out[0], out.size(), &written) != SEC_RESULT_SUCCESS) {
+    if (SecCertificate_Export(certificateHandle, out.data(), out.size(), &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCertificate_Export failed");
         return SEC_RESULT_FAILURE;
     }
 
-    X509* x509 = DerToX509(&out[0], out.size());
+    X509* x509 = DerToX509(out.data(), out.size());
     if (x509 == nullptr) {
         SEC_LOG_ERROR("_DerToX509 failed");
         return SEC_RESULT_FAILURE;
