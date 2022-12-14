@@ -213,7 +213,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
         return SEC_RESULT_INVALID_PARAMETERS;
     }
 
-    if (!SecKey_IsSymmetric(typeComputed)) {
+    if (!SecKey_IsSymetric(typeComputed)) {
         SEC_LOG_ERROR("Invalid key type encountered: %d", typeComputed);
         return SEC_RESULT_FAILURE;
     }

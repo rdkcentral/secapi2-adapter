@@ -232,14 +232,14 @@ Sec_KeyHandle* TestCtx::provisionKey(SEC_OBJECTID id, Sec_StorageLoc loc, TestKe
         exported_key.resize(SEC_KEYCONTAINER_MAX_LEN);
         SEC_SIZE exported_len;
 
-        if (SecKey_ExportKey(keyHandle, &derivation_input[0], &exported_key[0], exported_key.size(), &exported_len) !=
-                SEC_RESULT_SUCCESS) {
+        if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_key.data(), exported_key.size(),
+                    &exported_len) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecKey_ExportKey failed");
             return nullptr;
         }
         exported_key.resize(exported_len);
 
-        return provisionKey(id, loc, &exported_key[0], exported_key.size(), SEC_KEYCONTAINER_EXPORTED, SEC_FALSE);
+        return provisionKey(id, loc, exported_key.data(), exported_key.size(), SEC_KEYCONTAINER_EXPORTED, SEC_FALSE);
     }
 
     std::shared_ptr<ProvKey> prov(TestCreds::getKey(key, kc, id));
@@ -316,7 +316,7 @@ void TestCtx::deleteCert(SEC_OBJECTID id) {
 
 Sec_BundleHandle* TestCtx::provisionBundle(SEC_OBJECTID id, Sec_StorageLoc location,
         const std::vector<SEC_BYTE>& bundle) {
-    if (SecBundle_Provision(proc_, id, location, const_cast<SEC_BYTE*>(&bundle[0]), bundle.size()) !=
+    if (SecBundle_Provision(proc_, id, location, const_cast<SEC_BYTE*>(bundle.data()), bundle.size()) !=
             SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecBundle_Provision failed");
         return nullptr;
@@ -458,7 +458,7 @@ void TestCtx::releaseDigest(Sec_DigestHandle* digestHandle) {
 
 void TestCtx::printHex(const char* label, const std::vector<SEC_BYTE>& data) {
     SEC_PRINT("%s[%d]: ", label, data.size());
-    Sec_PrintHex((void*) &data[0], data.size()); // NOLINT
+    Sec_PrintHex((void*) data.data(), data.size()); // NOLINT
     SEC_PRINT("\n");
 }
 
@@ -467,7 +467,7 @@ std::vector<SEC_BYTE> TestCtx::random(SEC_SIZE len) {
 
     output.resize(len);
 
-    RAND_bytes(&output[0], static_cast<int>(output.size()));
+    RAND_bytes(output.data(), static_cast<int>(output.size()));
 
     return output;
 }

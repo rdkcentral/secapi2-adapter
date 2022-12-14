@@ -364,12 +364,13 @@ Sec_Result SecMac_SingleInputId(Sec_ProcessorHandle* processorHandle, Sec_MacAlg
 
 /**
  * @brief Checks if a passed in key type is symmetric.
+ * Note - keep misspelled function name for backward compatibility.
  *
  * @param type key type
  *
  * @return 1 if key type is symmetric, 0 if asymmetric
  */
-SEC_BOOL SecKey_IsSymmetric(Sec_KeyType type);
+SEC_BOOL SecKey_IsSymetric(Sec_KeyType type);
 
 /**
  * @brief Checks if a passed in key type is an AES key.

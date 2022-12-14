@@ -684,7 +684,7 @@ static bool Is_Valid_Point(EC_KEY* ec_key, const std::vector<SEC_BYTE>& data) {
         return false;
     }
 
-    if (BN_bin2bn(&data[0], static_cast<int>(data.size()), inputAsBN.get()) == nullptr) {
+    if (BN_bin2bn(data.data(), static_cast<int>(data.size()), inputAsBN.get()) == nullptr) {
         SEC_LOG_ERROR("BN_bin2bn failed. Error: %s", ERR_error_string(ERR_get_error(), nullptr));
         return false;
     }
@@ -919,9 +919,9 @@ static std::vector<SEC_BYTE> opensslRsaCrypt(RSA* rsa, Sec_CipherAlgorithm algor
     output.resize(RSA_size(rsa));
 
     if (mode == SEC_CIPHERMODE_ENCRYPT || mode == SEC_CIPHERMODE_ENCRYPT_NATIVEMEM) {
-        openssl_res = RSA_public_encrypt(static_cast<int>(input.size()), &input[0], &output[0], rsa, padding);
+        openssl_res = RSA_public_encrypt(static_cast<int>(input.size()), input.data(), output.data(), rsa, padding);
     } else {
-        openssl_res = RSA_private_decrypt(static_cast<int>(input.size()), &input[0], &output[0], rsa, padding);
+        openssl_res = RSA_private_decrypt(static_cast<int>(input.size()), input.data(), output.data(), rsa, padding);
     }
 
     if (openssl_res < 0) {
@@ -985,7 +985,7 @@ static std::vector<SEC_BYTE> toPkcs8(RSA* rsa) {
     pkcs8.resize(SEC_KEYCONTAINER_MAX_LEN);
     SEC_SIZE pkcs8_len;
 
-    if (RSAToDERPrivKeyInfo(rsa, &pkcs8[0], pkcs8.size(), &pkcs8_len) != SEC_RESULT_SUCCESS) {
+    if (RSAToDERPrivKeyInfo(rsa, pkcs8.data(), pkcs8.size(), &pkcs8_len) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecUtils_RSAToDERPriv failed");
         return {};
     }
@@ -1009,16 +1009,16 @@ ProvKey* TestCreds::wrapAesWithEc(const SEC_BYTE* clear, Sec_KeyType type, EC_KE
     payload.resize(32);
 
     if (type == SEC_KEYTYPE_AES_128) {
-        memcpy(&payload[0], clear, SEC_AES_BLOCK_SIZE);
+        memcpy(payload.data(), clear, SEC_AES_BLOCK_SIZE);
         memcpy(&payload[16], clear, SEC_AES_BLOCK_SIZE);
     } else {
-        memcpy(&payload[0], clear, 32);
+        memcpy(payload.data(), clear, 32);
     }
 
     std::vector<SEC_BYTE> encrypted;
     encrypted.resize(SEC_ECC_NISTP256_KEY_LEN * 4);
 
-    int encrypted_len = ElGamal_Encrypt(ec_key, &payload[0], payload.size(), &encrypted[0],
+    int encrypted_len = ElGamal_Encrypt(ec_key, payload.data(), payload.size(), &encrypted[0],
             encrypted.size());
 
     if (encrypted_len <= 0) {

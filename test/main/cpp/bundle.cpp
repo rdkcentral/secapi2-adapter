@@ -45,7 +45,7 @@ Sec_Result testBundleProvision(SEC_OBJECTID id, Sec_StorageLoc loc, SEC_SIZE siz
     //export bundle
     std::vector<SEC_BYTE> out;
     out.resize(written);
-    if (SecBundle_Export(bundleHandle, &out[0], size, &written) != SEC_RESULT_SUCCESS) {
+    if (SecBundle_Export(bundleHandle, out.data(), size, &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecBundle_Export failed");
         return SEC_RESULT_FAILURE;
     }
@@ -96,7 +96,7 @@ Sec_Result testBundleProvisionNoSha(SEC_OBJECTID id) {
     //export bundle
     std::vector<SEC_BYTE> out;
     out.resize(written);
-    if (SecBundle_Export(bundleHandle, &out[0], 256, &written) != SEC_RESULT_SUCCESS) {
+    if (SecBundle_Export(bundleHandle, out.data(), 256, &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecBundle_Export failed");
         return SEC_RESULT_FAILURE;
     }
@@ -121,8 +121,8 @@ Sec_Result testBundleProvisionNoAppDir(SEC_OBJECTID id, SEC_SIZE size) {
 
     std::vector<SEC_BYTE> bundle = TestCtx::random(size);
 
-    if (SecBundle_Provision(ctx.proc(), id, SEC_STORAGELOC_FILE, static_cast<SEC_BYTE*>(&bundle[0]), bundle.size()) ==
-            SEC_RESULT_SUCCESS) {
+    if (SecBundle_Provision(ctx.proc(), id, SEC_STORAGELOC_FILE, static_cast<SEC_BYTE*>(bundle.data()),
+bundle.size()) == SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecBundle_Provision succeeded, but expected to fail");
         return SEC_RESULT_FAILURE;
     }

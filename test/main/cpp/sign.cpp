@@ -80,7 +80,7 @@ std::vector<SEC_BYTE> signOpenSSL(Sec_SignatureAlgorithm alg, TestKey key, const
             return {};
         }
 
-        esig = ECDSA_do_sign(&digest[0], static_cast<int>(digest.size()), ec_key);
+        esig = ECDSA_do_sign(digest.data(), static_cast<int>(digest.size()), ec_key);
         SEC_ECC_FREE(ec_key);
 
         if (esig == nullptr) {
@@ -92,13 +92,13 @@ std::vector<SEC_BYTE> signOpenSSL(Sec_SignatureAlgorithm alg, TestKey key, const
         sig.resize(256);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-        BigNumToBuffer(esig->r, &sig[0], SEC_ECC_NISTP256_KEY_LEN);
+        BigNumToBuffer(esig->r, sig.data(), SEC_ECC_NISTP256_KEY_LEN);
         BigNumToBuffer(esig->s, &sig[SEC_ECC_NISTP256_KEY_LEN], SEC_ECC_NISTP256_KEY_LEN);
 #else
         const BIGNUM* esigr = nullptr;
         const BIGNUM* esigs = nullptr;
         ECDSA_SIG_get0(esig, &esigr, &esigs);
-        BigNumToBuffer(const_cast<BIGNUM*>(esigr), &sig[0], SEC_ECC_NISTP256_KEY_LEN);
+        BigNumToBuffer(const_cast<BIGNUM*>(esigr), sig.data(), SEC_ECC_NISTP256_KEY_LEN);
         BigNumToBuffer(const_cast<BIGNUM*>(esigs), &sig[SEC_ECC_NISTP256_KEY_LEN], SEC_ECC_NISTP256_KEY_LEN);
 #endif
         ECDSA_SIG_free(esig);
@@ -140,8 +140,8 @@ std::vector<SEC_BYTE> signOpenSSL(Sec_SignatureAlgorithm alg, TestKey key, const
     sig.resize(256);
     size_t siglen = 256;
 
-    if (EVP_PKEY_sign(ctx, nullptr, &siglen, &digest[0], digest.size()) <= 0 ||
-            EVP_PKEY_sign(ctx, &sig[0], &siglen, &digest[0], digest.size()) <= 0) {
+    if (EVP_PKEY_sign(ctx, nullptr, &siglen, digest.data(), digest.size()) <= 0 ||
+            EVP_PKEY_sign(ctx, sig.data(), &siglen, digest.data(), digest.size()) <= 0) {
         EVP_PKEY_free(evp_pkey);
         EVP_PKEY_CTX_free(ctx);
         SEC_LOG_ERROR("EVP_PKEY_sign failed");
@@ -218,19 +218,19 @@ static SEC_BOOL verifyOpenSSLEccPub(Sec_SignatureAlgorithm alg, Sec_ECCRawPublic
     ECDSA_SIG esig;
     esig.r = BN_new();
     esig.s = BN_new();
-    BN_bin2bn(&sig[0], SEC_ECC_NISTP256_KEY_LEN, esig.r);
+    BN_bin2bn(sig.data(), SEC_ECC_NISTP256_KEY_LEN, esig.r);
     BN_bin2bn(&sig[SEC_ECC_NISTP256_KEY_LEN], SEC_ECC_NISTP256_KEY_LEN, esig.s);
-    int openssl_res = ECDSA_do_verify(&digest[0], static_cast<int>(digest.size()), &esig, ec_key);
+    int openssl_res = ECDSA_do_verify(digest.data(), static_cast<int>(digest.size()), &esig, ec_key);
     BN_free(esig.r);
     BN_free(esig.s);
 #else
     ECDSA_SIG* esig = ECDSA_SIG_new();
     BIGNUM* r = BN_new();
     BIGNUM* s = BN_new();
-    BN_bin2bn(&sig[0], SEC_ECC_NISTP256_KEY_LEN, r);
+    BN_bin2bn(sig.data(), SEC_ECC_NISTP256_KEY_LEN, r);
     BN_bin2bn(&sig[SEC_ECC_NISTP256_KEY_LEN], SEC_ECC_NISTP256_KEY_LEN, s);
     ECDSA_SIG_set0(esig, r, s);
-    int openssl_res = ECDSA_do_verify(&digest[0], static_cast<int>(digest.size()), esig, ec_key);
+    int openssl_res = ECDSA_do_verify(digest.data(), static_cast<int>(digest.size()), esig, ec_key);
     ECDSA_SIG_free(esig);
 #endif
     SEC_ECC_FREE(ec_key);
@@ -292,19 +292,19 @@ SEC_BOOL verifyOpenSSL(Sec_SignatureAlgorithm alg, TestKey key, const std::vecto
         ECDSA_SIG esig;
         esig.r = BN_new();
         esig.s = BN_new();
-        BN_bin2bn(&sig[0], SEC_ECC_NISTP256_KEY_LEN, esig.r);
+        BN_bin2bn(sig.data(), SEC_ECC_NISTP256_KEY_LEN, esig.r);
         BN_bin2bn(&sig[SEC_ECC_NISTP256_KEY_LEN], SEC_ECC_NISTP256_KEY_LEN, esig.s);
-        int openssl_res = ECDSA_do_verify(&digest[0], static_cast<int>(digest.size()), &esig, ec_key);
+        int openssl_res = ECDSA_do_verify(digest.data(), static_cast<int>(digest.size()), &esig, ec_key);
         BN_free(esig.r);
         BN_free(esig.s);
 #else
         ECDSA_SIG* esig = ECDSA_SIG_new();
         BIGNUM* r = BN_new();
         BIGNUM* s = BN_new();
-        BN_bin2bn(&sig[0], SEC_ECC_NISTP256_KEY_LEN, r);
+        BN_bin2bn(sig.data(), SEC_ECC_NISTP256_KEY_LEN, r);
         BN_bin2bn(&sig[SEC_ECC_NISTP256_KEY_LEN], SEC_ECC_NISTP256_KEY_LEN, s);
         ECDSA_SIG_set0(esig, r, s);
-        int openssl_res = ECDSA_do_verify(&digest[0], static_cast<int>(digest.size()), esig, ec_key);
+        int openssl_res = ECDSA_do_verify(digest.data(), static_cast<int>(digest.size()), esig, ec_key);
         ECDSA_SIG_free(esig);
 #endif
         SEC_ECC_FREE(ec_key);
@@ -346,7 +346,7 @@ SEC_BOOL verifyOpenSSL(Sec_SignatureAlgorithm alg, TestKey key, const std::vecto
         return SEC_FALSE;
     }
 
-    if (EVP_PKEY_verify(ctx, &sig[0], sig.size(), &digest[0], digest.size()) <= 0) {
+    if (EVP_PKEY_verify(ctx, sig.data(), sig.size(), digest.data(), digest.size()) <= 0) {
         EVP_PKEY_free(evp_pkey);
         EVP_PKEY_CTX_free(ctx);
         SEC_LOG_ERROR("EVP_PKEY_verify failed");
@@ -372,8 +372,8 @@ std::vector<SEC_BYTE> signSecApi(TestCtx* ctx, Sec_SignatureAlgorithm alg, Sec_K
     sig.resize(256);
     SEC_SIZE sig_len;
 
-    if (SecSignature_Process(signatureHandle, const_cast<SEC_BYTE*>(&input[0]), input.size(), &sig[0], &sig_len) !=
-            SEC_RESULT_SUCCESS) {
+    if (SecSignature_Process(signatureHandle, const_cast<SEC_BYTE*>(input.data()), input.size(), sig.data(),
+                &sig_len) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecSignature_Process failed");
         return {};
     }
@@ -394,8 +394,8 @@ SEC_BOOL verifySecApi(TestCtx* ctx, Sec_SignatureAlgorithm alg, Sec_KeyHandle* k
 
     SEC_SIZE sig_len = sig.size();
 
-    if (SecSignature_Process(signatureHandle, const_cast<SEC_BYTE*>(&input[0]), input.size(),
-                const_cast<SEC_BYTE*>(&sig[0]), &sig_len) != SEC_RESULT_SUCCESS) {
+    if (SecSignature_Process(signatureHandle, const_cast<SEC_BYTE*>(input.data()), input.size(),
+                const_cast<SEC_BYTE*>(sig.data()), &sig_len) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecSignature_Process failed");
         return SEC_FALSE;
     }

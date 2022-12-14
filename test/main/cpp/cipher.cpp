@@ -54,7 +54,7 @@ static std::vector<SEC_BYTE> opensslAesCbc(TestKey key, Sec_CipherMode mode, boo
         return {};
     }
 
-    if (EVP_CipherInit_ex(p_evp_ctx.get(), nullptr, nullptr, &openssl_key[0], iv,
+    if (EVP_CipherInit_ex(p_evp_ctx.get(), nullptr, nullptr, openssl_key.data(), iv,
                 (mode == SEC_CIPHERMODE_ENCRYPT || mode == SEC_CIPHERMODE_ENCRYPT_NATIVEMEM) ? 1 : 0) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherInit failed");
@@ -67,7 +67,7 @@ static std::vector<SEC_BYTE> opensslAesCbc(TestKey key, Sec_CipherMode mode, boo
     SEC_SIZE written = 0;
     int outlen = 0;
 
-    if (EVP_CipherUpdate(p_evp_ctx.get(), &output[0], &outlen, &input[0], static_cast<int>(input.size())) !=
+    if (EVP_CipherUpdate(p_evp_ctx.get(), output.data(), &outlen, input.data(), static_cast<int>(input.size())) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherUpdate failed");
         return {};
@@ -109,7 +109,7 @@ std::vector<SEC_BYTE> opensslAesEcb(const std::vector<SEC_BYTE>& openssl_key, Se
         return {};
     }
 
-    if (EVP_CipherInit_ex(p_evp_ctx.get(), nullptr, nullptr, &openssl_key[0], iv,
+    if (EVP_CipherInit_ex(p_evp_ctx.get(), nullptr, nullptr, openssl_key.data(), iv,
                 (mode == SEC_CIPHERMODE_ENCRYPT || mode == SEC_CIPHERMODE_ENCRYPT_NATIVEMEM) ? 1 : 0) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherInit failed");
@@ -120,7 +120,7 @@ std::vector<SEC_BYTE> opensslAesEcb(const std::vector<SEC_BYTE>& openssl_key, Se
 
     SEC_SIZE written = 0;
     int outlen = 0;
-    if (EVP_CipherUpdate(p_evp_ctx.get(), &output[0], &outlen, &input[0], static_cast<int>(input.size())) !=
+    if (EVP_CipherUpdate(p_evp_ctx.get(), output.data(), &outlen, input.data(), static_cast<int>(input.size())) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherUpdate failed");
         return {};
@@ -164,7 +164,7 @@ std::vector<SEC_BYTE> opensslAesEcb(TestKey key, Sec_CipherMode mode, bool paddi
         return {};
     }
 
-    if (EVP_CipherInit_ex(p_evp_ctx.get(), nullptr, nullptr, &openssl_key[0], iv,
+    if (EVP_CipherInit_ex(p_evp_ctx.get(), nullptr, nullptr, openssl_key.data(), iv,
                 (mode == SEC_CIPHERMODE_ENCRYPT || mode == SEC_CIPHERMODE_ENCRYPT_NATIVEMEM) ? 1 : 0) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherInit failed");
@@ -175,7 +175,7 @@ std::vector<SEC_BYTE> opensslAesEcb(TestKey key, Sec_CipherMode mode, bool paddi
 
     SEC_SIZE written = 0;
     int outlen = 0;
-    if (EVP_CipherUpdate(p_evp_ctx.get(), &output[0], &outlen, &input[0], static_cast<int>(input.size())) !=
+    if (EVP_CipherUpdate(p_evp_ctx.get(), output.data(), &outlen, input.data(), static_cast<int>(input.size())) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherUpdate failed");
         return {};
@@ -206,7 +206,7 @@ static std::vector<SEC_BYTE> opensslAesCtr(TestKey key, Sec_CipherMode mode, SEC
     std::shared_ptr<EVP_CIPHER_CTX> evp_ctx(EVP_CIPHER_CTX_new(), EVP_CIPHER_CTX_free);
     EVP_CIPHER_CTX_init(evp_ctx.get());
     if (EVP_CipherInit_ex(evp_ctx.get(), (openssl_key.size() == 16) ? EVP_aes_128_ctr() : EVP_aes_256_ctr(), nullptr,
-                &openssl_key[0], ivToUse,
+                openssl_key.data(), ivToUse,
                 (mode == SEC_CIPHERMODE_ENCRYPT || mode == SEC_CIPHERMODE_ENCRYPT_NATIVEMEM) ? 1 : 0) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherInit_ex failed");
@@ -214,7 +214,7 @@ static std::vector<SEC_BYTE> opensslAesCtr(TestKey key, Sec_CipherMode mode, SEC
     }
 
     int out_len = 0;
-    if (EVP_CipherUpdate(evp_ctx.get(), &output[0], &out_len, &input[0], static_cast<int>(input.size())) !=
+    if (EVP_CipherUpdate(evp_ctx.get(), output.data(), &out_len, input.data(), static_cast<int>(input.size())) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherUpdate failed");
         return {};
@@ -273,7 +273,7 @@ std::vector<SEC_BYTE> opensslAesGcm(const std::vector<SEC_BYTE>& key, Sec_Cipher
         }
     }
 
-    if (EVP_CipherUpdate(evp_ctx.get(), &output[0], &out_length, &input[0], static_cast<int>(input.size())) !=
+    if (EVP_CipherUpdate(evp_ctx.get(), output.data(), &out_length, input.data(), static_cast<int>(input.size())) !=
             OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("EVP_CipherUpdate failed");
         return {};
@@ -318,9 +318,11 @@ static std::vector<SEC_BYTE> opensslRsaCrypt(TestKey key, Sec_CipherAlgorithm al
     output.resize(RSA_size(rsa.get()));
 
     if (mode == SEC_CIPHERMODE_ENCRYPT || mode == SEC_CIPHERMODE_ENCRYPT_NATIVEMEM) {
-        openssl_res = RSA_public_encrypt(static_cast<int>(input.size()), &input[0], &output[0], rsa.get(), padding);
+        openssl_res = RSA_public_encrypt(static_cast<int>(input.size()), input.data(), output.data(), rsa.get(),
+                padding);
     } else {
-        openssl_res = RSA_private_decrypt(static_cast<int>(input.size()), &input[0], &output[0], rsa.get(), padding);
+        openssl_res = RSA_private_decrypt(static_cast<int>(input.size()), input.data(), output.data(), rsa.get(),
+                padding);
     }
 
     if (openssl_res < 0) {
@@ -371,7 +373,7 @@ std::vector<SEC_BYTE> cipherSecApi(TestCtx* ctx, Sec_KeyHandle* keyHandle, Sec_C
     SEC_SIZE outputWritten = 0;
     SEC_SIZE written = 0;
 
-    Sec_CipherHandle* cipherHandle = ctx->acquireCipher(alg, mode, keyHandle, const_cast<SEC_BYTE*>(&iv[0]));
+    Sec_CipherHandle* cipherHandle = ctx->acquireCipher(alg, mode, keyHandle, const_cast<SEC_BYTE*>(iv.data()));
     if (cipherHandle == nullptr) {
         SEC_LOG_ERROR("TestCtx::acquireCipher failed");
         return {};
@@ -416,14 +418,14 @@ std::vector<SEC_BYTE> cipherSecApiSingle(TestCtx* ctx, Sec_KeyHandle* keyHandle,
 
     SEC_SIZE written = 0;
 
-    Sec_CipherHandle* cipherHandle = ctx->acquireCipher(alg, mode, keyHandle, const_cast<SEC_BYTE*>(&iv[0]));
+    Sec_CipherHandle* cipherHandle = ctx->acquireCipher(alg, mode, keyHandle, const_cast<SEC_BYTE*>(iv.data()));
     if (cipherHandle == nullptr) {
         SEC_LOG_ERROR("TestCtx::acquireCipher failed");
         return {};
     }
 
-    if (SecCipher_Process(cipherHandle, const_cast<SEC_BYTE*>(inplace == SEC_TRUE ? &output[0] : &input[0]),
-                input.size(), SEC_TRUE, &output[0], output.size(), &written) != SEC_RESULT_SUCCESS) {
+    if (SecCipher_Process(cipherHandle, const_cast<SEC_BYTE*>(inplace == SEC_TRUE ? output.data() : input.data()),
+                input.size(), SEC_TRUE, output.data(), output.size(), &written) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_Process failed");
         return {};
     }
@@ -444,15 +446,15 @@ std::vector<SEC_BYTE> cipherSecApiSingle(TestCtx* ctx, Sec_CipherHandle* cipherH
     SEC_SIZE written = 0;
 
     if (!iv.empty()) {
-        if (SecCipher_UpdateIV(cipherHandle, const_cast<SEC_BYTE*>(&iv[0])) != SEC_RESULT_SUCCESS) {
+        if (SecCipher_UpdateIV(cipherHandle, const_cast<SEC_BYTE*>(iv.data())) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("SecCipher_UpdateIV failed");
             return {};
         }
     }
 
     Sec_Result result = SecCipher_Process(cipherHandle,
-            const_cast<SEC_BYTE*>(inplace == SEC_TRUE ? &output[0] : &input[0]), input.size(), SEC_FALSE, &output[0],
-            output.size(), &written);
+            const_cast<SEC_BYTE*>(inplace == SEC_TRUE ? output.data() : input.data()), input.size(), SEC_FALSE,
+            output.data(), output.size(), &written);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_Process failed");
         return {};
@@ -539,7 +541,7 @@ Sec_Result testCipherMult(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLo
         encrypted = cipherSecApi(&ctx, keyHandle, alg, SEC_CIPHERMODE_ENCRYPT, iv, clear, inputSizes, inplace);
     } else {
         //use openssl to encrypt
-        encrypted = cipherOpenSSL(key, alg, SEC_CIPHERMODE_ENCRYPT, &iv[0], clear);
+        encrypted = cipherOpenSSL(key, alg, SEC_CIPHERMODE_ENCRYPT, iv.data(), clear);
     }
 
     TestCtx::printHex("encrypted", encrypted);
@@ -548,7 +550,7 @@ Sec_Result testCipherMult(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLo
     std::vector<SEC_BYTE> decrypted;
     if (testEncrypt) {
         //use openssl to decrypt
-        decrypted = cipherOpenSSL(key, alg, SEC_CIPHERMODE_DECRYPT, &iv[0], encrypted);
+        decrypted = cipherOpenSSL(key, alg, SEC_CIPHERMODE_DECRYPT, iv.data(), encrypted);
     } else {
         //use sec api to decrypt
         decrypted = cipherSecApi(&ctx, keyHandle, alg, SEC_CIPHERMODE_DECRYPT, iv, encrypted, inputSizes, inplace);
@@ -605,7 +607,7 @@ Sec_Result testCipherMult(SEC_OBJECTID id, TestKey pub, TestKey priv, TestKc kc,
         encrypted = cipherSecApi(&ctx, keyHandle, alg, SEC_CIPHERMODE_ENCRYPT, iv, clear, inputSizes, inplace);
     } else {
         //use openssl to encrypt
-        encrypted = cipherOpenSSL(pub, alg, SEC_CIPHERMODE_ENCRYPT, &iv[0], clear);
+        encrypted = cipherOpenSSL(pub, alg, SEC_CIPHERMODE_ENCRYPT, iv.data(), clear);
     }
 
     TestCtx::printHex("encrypted", encrypted);
@@ -614,7 +616,7 @@ Sec_Result testCipherMult(SEC_OBJECTID id, TestKey pub, TestKey priv, TestKc kc,
     std::vector<SEC_BYTE> decrypted;
     if (testEncrypt) {
         //use openssl to decrypt
-        decrypted = cipherOpenSSL(priv, alg, SEC_CIPHERMODE_DECRYPT, &iv[0], encrypted);
+        decrypted = cipherOpenSSL(priv, alg, SEC_CIPHERMODE_DECRYPT, iv.data(), encrypted);
     } else {
         //use sec api to decrypt
         decrypted = cipherSecApi(&ctx, keyHandle, alg, SEC_CIPHERMODE_DECRYPT, iv, encrypted, inputSizes, inplace);

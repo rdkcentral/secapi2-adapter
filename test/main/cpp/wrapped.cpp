@@ -61,7 +61,7 @@ static ProvKey convertV2ToV3(const std::vector<ProvKey>& v2) {
                 lastKey = key;
             } else {
                 if (SecKey_GenerateWrappedKeyAsn1V3(payload, payloadLen, wrappedKeyType, &lastKey.key[0],
-                            lastKey.key.size(), wrappingIv, wrappingAlg, &v3Key[0], v3Key.size(), &v3KeyLen,
+                            lastKey.key.size(), wrappingIv, wrappingAlg, v3Key.data(), v3Key.size(), &v3KeyLen,
                             key_offset) != SEC_RESULT_SUCCESS) {
 
                     SEC_LOG_ERROR("SecKey_GenerateWrappedKeyAsn1V3 failed");
@@ -145,12 +145,13 @@ Sec_Result testWrappedCipherSingleRsaAesRsaAesAes(TestKey key, TestKc kc, Sec_Ke
     }
 
     if (SecKey_IsAES(keyType) == SEC_TRUE) {
-        if (aesKeyCheck(ctx.proc(), id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (aesKeyCheck(ctx.proc(), id - 1, clear.data(), clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("AesKeyCheck failed");
             return SEC_RESULT_FAILURE;
         }
     } else {
-        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, clear.data(),
+                    clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("MacCheck failed");
             return SEC_RESULT_FAILURE;
         }
@@ -222,12 +223,13 @@ Sec_Result testWrappedCipherSingleRsaAes(TestKey key, TestKc kc, Sec_KeyType rsa
     }
 
     if (SecKey_IsAES(keyType) == SEC_TRUE) {
-        if (aesKeyCheck(ctx.proc(), id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (aesKeyCheck(ctx.proc(), id - 1, clear.data(), clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("AesKeyCheck failed");
             return SEC_RESULT_FAILURE;
         }
     } else {
-        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, clear.data(),
+                    clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("MacCheck failed");
             return SEC_RESULT_FAILURE;
         }
@@ -294,12 +296,13 @@ Sec_Result testWrappedCipherSingleEcAes(TestKey key, TestKc kc, Sec_CipherAlgori
     std::vector<SEC_BYTE> clear = TestCreds::asOpenSslAes(key);
 
     if (SecKey_IsAES(keyType) == SEC_TRUE) {
-        if (aesKeyCheck(ctx.proc(), id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (aesKeyCheck(ctx.proc(), id - 1, clear.data(), clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("AesKeyCheck failed");
             return SEC_RESULT_FAILURE;
         }
     } else {
-        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, clear.data(),
+                    clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("MacCheck failed");
             return SEC_RESULT_FAILURE;
         }
@@ -372,12 +375,13 @@ Sec_Result testWrappedCipherSingleEcAesAes(TestKey key, TestKc kc, Sec_KeyType a
     std::vector<SEC_BYTE> clear = TestCreds::asOpenSslAes(key);
 
     if (SecKey_IsAES(keyType) == SEC_TRUE) {
-        if (aesKeyCheck(ctx.proc(), id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (aesKeyCheck(ctx.proc(), id - 1, clear.data(), clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("AesKeyCheck failed");
             return SEC_RESULT_FAILURE;
         }
     } else {
-        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, clear.data(),
+                    clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("MacCheck failed");
             return SEC_RESULT_FAILURE;
         }
@@ -461,7 +465,7 @@ Sec_Result testExportWrappedRsaAesAes(TestKey key, TestKc kc, Sec_KeyType rsaTyp
         return SEC_RESULT_FAILURE;
     }
 
-    if (SecKey_ExportKey(keyHandle, &derivation_input[0], &exported_key[0], exported_key.size(), &exported_len) !=
+    if (SecKey_ExportKey(keyHandle, derivation_input.data(), exported_key.data(), exported_key.size(), &exported_len) !=
             SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_ExportKey failed");
         SecKey_Release(keyHandle);
@@ -471,7 +475,7 @@ Sec_Result testExportWrappedRsaAesAes(TestKey key, TestKc kc, Sec_KeyType rsaTyp
     SecKey_Release(keyHandle);
 
     //provision exported
-    if (SecKey_Provision(ctx.proc(), idContentKey, SEC_STORAGELOC_RAM, SEC_KEYCONTAINER_EXPORTED, &exported_key[0],
+    if (SecKey_Provision(ctx.proc(), idContentKey, SEC_STORAGELOC_RAM, SEC_KEYCONTAINER_EXPORTED, exported_key.data(),
                 exported_key.size()) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_Provision failed");
         return SEC_RESULT_FAILURE;
@@ -486,12 +490,12 @@ Sec_Result testExportWrappedRsaAesAes(TestKey key, TestKc kc, Sec_KeyType rsaTyp
     }
 
     if (SecKey_IsAES(keyType) == SEC_TRUE) {
-        if (aesKeyCheck(ctx.proc(), idContentKey, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (aesKeyCheck(ctx.proc(), idContentKey, clear.data(), clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("AesKeyCheck failed");
             return SEC_RESULT_FAILURE;
         }
     } else {
-        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, idContentKey, &clear[0], clear.size()) !=
+        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, idContentKey, clear.data(), clear.size()) !=
                 SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("MacCheck failed");
             return SEC_RESULT_FAILURE;
@@ -566,12 +570,13 @@ Sec_Result testWrappedCipherSingleRsaAesAes(TestKey key, TestKc kc, Sec_KeyType 
     }
 
     if (SecKey_IsAES(keyType) == SEC_TRUE) {
-        if (aesKeyCheck(ctx.proc(), id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (aesKeyCheck(ctx.proc(), id - 1, clear.data(), clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("AesKeyCheck failed");
             return SEC_RESULT_FAILURE;
         }
     } else {
-        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, &clear[0], clear.size()) != SEC_RESULT_SUCCESS) {
+        if (macCheck(ctx.proc(), SEC_MACALGORITHM_HMAC_SHA256, id - 1, clear.data(),
+                    clear.size()) != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("MacCheck failed");
             return SEC_RESULT_FAILURE;
         }
@@ -588,8 +593,8 @@ static std::vector<SEC_BYTE> asn1(Sec_ProcessorHandle* processorHandle, const st
 
     std::vector<SEC_BYTE> iv = TestCtx::random(SEC_AES_BLOCK_SIZE);
 
-    if (SecCipher_SingleInputId(processorHandle, algorithm, SEC_CIPHERMODE_ENCRYPT, wrappingId, &iv[0],
-                (SEC_BYTE*) &clear[0], clear.size(), &wrapped[0], wrapped.size(), &wrapped_len) != // NOLINT
+    if (SecCipher_SingleInputId(processorHandle, algorithm, SEC_CIPHERMODE_ENCRYPT, wrappingId, iv.data(),
+                (SEC_BYTE*) clear.data(), clear.size(), wrapped.data(), wrapped.size(), &wrapped_len) != // NOLINT
             SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecCipher_SingleInputId failed");
         return {};
@@ -600,8 +605,8 @@ static std::vector<SEC_BYTE> asn1(Sec_ProcessorHandle* processorHandle, const st
     SEC_SIZE written;
     res.resize(SEC_KEYCONTAINER_MAX_LEN);
 
-    if (SecKey_GenerateWrappedKeyAsn1Off(&wrapped[0], wrapped.size(), type, wrappingId, &iv[0], algorithm, &res[0],
-                res.size(), &written, 0) != SEC_RESULT_SUCCESS) {
+    if (SecKey_GenerateWrappedKeyAsn1Off(wrapped.data(), wrapped.size(), type, wrappingId, iv.data(), algorithm,
+                res.data(), res.size(), &written, 0) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_GenerateWrappedKeyAsn1Off failed");
         return {};
     }

@@ -29,7 +29,7 @@ static std::vector<SEC_BYTE> random(SEC_SIZE len) {
     std::vector<SEC_BYTE> res;
     res.resize(len);
 
-    if (RAND_bytes(&res[0], static_cast<int>(len)) != OPENSSL_SUCCESS) {
+    if (RAND_bytes(res.data(), static_cast<int>(len)) != OPENSSL_SUCCESS) {
         SEC_LOG_ERROR("RAND_bytes failed");
         return {};
     }
@@ -118,7 +118,7 @@ ProvKey* TestCreds::getSocKey(TestKey key, SEC_OBJECTID id) {
 
             SEC_SIZE written;
             key_clear.resize(SEC_KEYCONTAINER_MAX_LEN);
-            if (SecUtils_RSAToDERPrivKeyInfo(rsa, &key_clear[0], key_clear.size(), &written) != SEC_RESULT_SUCCESS) {
+            if (SecUtils_RSAToDERPrivKeyInfo(rsa, key_clear.data(), key_clear.size(), &written) != SEC_RESULT_SUCCESS) {
                 SEC_LOG_ERROR("SecUtils_RSAToDERPrivKeyInfo failed");
                 SEC_RSA_FREE(rsa);
                 delete pk;
@@ -141,7 +141,8 @@ ProvKey* TestCreds::getSocKey(TestKey key, SEC_OBJECTID id) {
 
             SEC_SIZE written;
             key_clear.resize(SEC_KEYCONTAINER_MAX_LEN);
-            if (SecUtils_ECCToDERPrivKeyInfo(ec_key, &key_clear[0], key_clear.size(), &written) != SEC_RESULT_SUCCESS) {
+            if (SecUtils_ECCToDERPrivKeyInfo(ec_key, key_clear.data(), key_clear.size(),
+                        &written) != SEC_RESULT_SUCCESS) {
                 SEC_LOG_ERROR("SecUtils_ECCToPrivBinary failed");
                 SEC_ECC_FREE(ec_key);
                 delete pk;
@@ -155,31 +156,31 @@ ProvKey* TestCreds::getSocKey(TestKey key, SEC_OBJECTID id) {
 
         case SEC_KEYCONTAINER_RAW_AES_128: {
             key_clear.resize(pk->key.size());
-            memcpy(&key_clear[0], &pk->key[0], pk->key.size());
+            memcpy(key_clear.data(), &pk->key[0], pk->key.size());
             key_type = "AES-128";
         } break;
 
         case SEC_KEYCONTAINER_RAW_AES_256: {
             key_clear.resize(pk->key.size());
-            memcpy(&key_clear[0], &pk->key[0], pk->key.size());
+            memcpy(key_clear.data(), &pk->key[0], pk->key.size());
             key_type = "AES-256";
         } break;
 
         case SEC_KEYCONTAINER_RAW_HMAC_128: {
             key_clear.resize(pk->key.size());
-            memcpy(&key_clear[0], &pk->key[0], pk->key.size());
+            memcpy(key_clear.data(), &pk->key[0], pk->key.size());
             key_type = "HMAC-128";
         } break;
 
         case SEC_KEYCONTAINER_RAW_HMAC_160: {
             key_clear.resize(pk->key.size());
-            memcpy(&key_clear[0], &pk->key[0], pk->key.size());
+            memcpy(key_clear.data(), &pk->key[0], pk->key.size());
             key_type = "HMAC-160";
         } break;
 
         case SEC_KEYCONTAINER_RAW_HMAC_256: {
             key_clear.resize(pk->key.size());
-            memcpy(&key_clear[0], &pk->key[0], pk->key.size());
+            memcpy(key_clear.data(), &pk->key[0], pk->key.size());
             key_type = "HMAC-256";
         } break;
 
