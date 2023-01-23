@@ -133,7 +133,7 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     }
 
     if (pthread_mutex_init(&(*processorHandle)->mutex, NULL) != 0) {
-        SEC_LOG_ERROR("Error creating app_dir");
+        SEC_LOG_ERROR("Error initialization mutex");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
         SEC_FREE(*processorHandle);

@@ -1611,6 +1611,8 @@ do {
 }
 
 Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey contentKey) {
+    // SecApi 3 only allows sa_svp_key_check to be called from a TA.
+#if 0
     TestCtx ctx;
     Sec_Result result = SEC_RESULT_FAILURE;
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
@@ -1701,6 +1703,8 @@ Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey conte
         SecKey_Release(keyHandle);
 
     return result;
+#endif
+    return SEC_RESULT_SUCCESS;
 }
 
 /* Only Opaque buffers can be used when SVP is required */

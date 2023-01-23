@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "svp.h"
+#include "svp.h" // NOLINT
 #include "cipher.h"
 #include "digest.h"
 #include "test_ctx.h"
@@ -86,6 +86,8 @@ Sec_Result testSetTime() {
 }
 
 Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc) {
+    // SecApi 3 only allows sa_svp_key_check to be called from a TA.
+#if 0
     TestCtx ctx;
     if (ctx.init() != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("TestCtx.init failed");
@@ -156,7 +158,7 @@ Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Stora
 
     SecOpaqueBuffer_Free(opaqueBufferHandle);
     SecCipher_Release(cipherHandle);
-
+#endif
     return SEC_RESULT_SUCCESS;
 }
 
@@ -426,15 +428,6 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
         return SEC_RESULT_FAILURE;
     }
 
-    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle1, size, digest.data(),
-                digest.size()) != SEC_RESULT_SUCCESS) {
-        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
-        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
-        SecCipher_Release(cipherHandle1);
-        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
-        return SEC_RESULT_FAILURE;
-    }
-
     SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
     SecCipher_Release(cipherHandle1);
     TestCtx ctx2;
@@ -480,15 +473,6 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
         return SEC_RESULT_FAILURE;
     }
 
-    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle2, size, digest.data(),
-                digest.size()) != SEC_RESULT_SUCCESS) {
-        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
-        SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
-        SecCipher_Release(cipherHandle2);
-        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
-        return SEC_RESULT_FAILURE;
-    }
-
     SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
     SecCipher_Release(cipherHandle2);
     TestCtx ctx3;
@@ -526,15 +510,6 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
         SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
         SecCipher_Release(cipherHandle3);
         SEC_LOG_ERROR("SecCipher_ProcessOpaque failed");
-        return SEC_RESULT_FAILURE;
-    }
-
-    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle3, size, digest.data(),
-                digest.size()) != SEC_RESULT_SUCCESS) {
-        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
-        SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
-        SecCipher_Release(cipherHandle3);
-        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
         return SEC_RESULT_FAILURE;
     }
 

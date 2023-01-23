@@ -948,9 +948,6 @@ Sec_Result SecOpaqueBuffer_Release(Sec_OpaqueBufferHandle* opaqueBufferHandle, S
 Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, SEC_SIZE out_offset,
         Sec_OpaqueBufferHandle* inOpaqueBufferHandle, SEC_SIZE in_offset, SEC_SIZE num_to_copy);
 
-Sec_Result SecOpaqueBuffer_Check(Sec_DigestAlgorithm digestAlgorithm, Sec_OpaqueBufferHandle* opaqueBufferHandle,
-        SEC_SIZE length, SEC_BYTE* expected, SEC_SIZE expectedLength);
-
 Sec_Result SecKeyExchange_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_KeyExchangeAlgorithm exchangeType,
         void* exchangeParameters, Sec_KeyExchangeHandle** keyExchangeHandle);
 
