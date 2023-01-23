@@ -19,8 +19,8 @@
 #ifndef SEC_ADAPTER_PROCESSOR_H
 #define SEC_ADAPTER_PROCESSOR_H
 
-#include "sa_types.h"
 #include "sa_ta_types.h"
+#include "sa_types.h"
 #include "sec_adapter_key.h"
 #include "sec_security.h"
 #include "sec_security_store.h"

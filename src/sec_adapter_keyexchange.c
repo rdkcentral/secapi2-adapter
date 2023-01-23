@@ -349,7 +349,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
 
     sa_key shared_secret;
     sa_status status = sa_invoke(keyExchangeHandle->processorHandle, SA_KEY_EXCHANGE, &shared_secret, &rights,
-            algorithm, *keyExchangeHandle->key, public_key_bytes, (size_t)key_len, NULL);
+            algorithm, *keyExchangeHandle->key, public_key_bytes, (size_t) key_len, NULL);
     free(public_key_bytes);
     CHECK_STATUS(status)
 

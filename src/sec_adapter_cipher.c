@@ -164,7 +164,7 @@ Sec_Result SecCipher_UpdateIV(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv) {
     sa_status status;
     if (key_type == SEC_KEYTYPE_AES_128 || key_type == SEC_KEYTYPE_AES_256) {
         status = sa_invoke(cipherHandle->processorHandle, SA_CRYPTO_CIPHER_UPDATE_IV, cipherHandle->cipher.context, iv,
-                (size_t)SEC_AES_BLOCK_SIZE);
+                (size_t) SEC_AES_BLOCK_SIZE);
         CHECK_STATUS(status)
         return SEC_RESULT_SUCCESS;
     }
@@ -939,7 +939,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
     sample.out = &out_buffer;
     sample.in = &in_buffer;
 
-    sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, (size_t)1, &sample);
+    sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, (size_t) 1, &sample);
     free(subsample_lengths);
     if (status != SA_STATUS_OK) {
         SecOpaqueBuffer_Free(*opaqueBufferHandle);
