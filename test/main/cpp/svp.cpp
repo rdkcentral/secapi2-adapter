@@ -17,8 +17,8 @@
  */
 
 #include "svp.h" // NOLINT
-#include "cipher.h"
 #include "digest.h"
+#include "sa.h"
 #include "test_ctx.h"
 
 #define MAX_BUFFER_SIZE (64 * 1024)
@@ -86,8 +86,11 @@ Sec_Result testSetTime() {
 }
 
 Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc) {
-    // SecApi 3 only allows sa_svp_key_check to be called from a TA.
-#if 0
+#if (SA_SPECIFICATION_MAJOR >= 3 && \
+        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
+
+    return SEC_RESULT_SUCCESS;
+#else
     TestCtx ctx;
     if (ctx.init() != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("TestCtx.init failed");
@@ -158,8 +161,8 @@ Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Stora
 
     SecOpaqueBuffer_Free(opaqueBufferHandle);
     SecCipher_Release(cipherHandle);
-#endif
     return SEC_RESULT_SUCCESS;
+#endif
 }
 
 Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,

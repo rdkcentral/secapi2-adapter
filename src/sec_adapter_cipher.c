@@ -17,6 +17,7 @@
  */
 
 #include "sec_adapter_cipher.h" // NOLINT
+#include "sa.h"
 #include "sa_cenc.h"
 #include <stdbool.h>
 
@@ -487,8 +488,45 @@ Sec_Result SecCipher_ProcessCtrWithOpaqueDataShift(Sec_CipherHandle* cipherHandl
  */
 Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle,
         SEC_SIZE checkLength, SEC_BYTE* expected) {
-    // SecApi 3 only allows sa_svp_key_check to be called from a TA.
+
+#if (SA_SPECIFICATION_MAJOR >= 3 && \
+        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
+
     return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+#else
+    if (opaqueBufferHandle == NULL) {
+        SEC_LOG_ERROR("Null inputHandle");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (checkLength < 8 || checkLength > SEC_AES_BLOCK_SIZE) {
+        SEC_LOG_ERROR("Length must be >=8 and <=16");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (cipherHandle == NULL) {
+        SEC_LOG_ERROR("Null cipherHandle");
+        return SEC_RESULT_FAILURE;
+    }
+
+    sa_status status;
+    sa_buffer in_buffer;
+    in_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
+    in_buffer.context.svp.offset = 0;
+    in_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, opaqueBufferHandle);
+    if (in_buffer.context.svp.buffer == -1)
+        return SEC_RESULT_FAILURE;
+
+    if (cipherHandle->mode == SEC_CIPHERMODE_ENCRYPT)
+        return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+
+    const Sec_Key* key = get_key(cipherHandle->keyHandle);
+    status = sa_invoke(cipherHandle->processorHandle, SA_SVP_KEY_CHECK, key->handle, &in_buffer,
+            (size_t) SEC_AES_BLOCK_SIZE, expected, (size_t) SEC_AES_BLOCK_SIZE);
+
+    CHECK_STATUS(status)
+    return SEC_RESULT_SUCCESS;
+#endif
 }
 
 /**

@@ -18,6 +18,7 @@
 
 #include "keyctrl.h" // NOLINT
 #include "jtype.h"
+#include "sa.h"
 #include "sec_security_comcastids.h"
 #include "sec_security_utils.h"
 #include "sign.h"
@@ -1611,8 +1612,10 @@ do {
 }
 
 Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey contentKey) {
-    // SecApi 3 only allows sa_svp_key_check to be called from a TA.
-#if 0
+#if (SA_SPECIFICATION_MAJOR >= 3 && \
+        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
+    return SEC_RESULT_SUCCESS;
+#else
     TestCtx ctx;
     Sec_Result result = SEC_RESULT_FAILURE;
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
@@ -1704,7 +1707,6 @@ Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey conte
 
     return result;
 #endif
-    return SEC_RESULT_SUCCESS;
 }
 
 /* Only Opaque buffers can be used when SVP is required */
