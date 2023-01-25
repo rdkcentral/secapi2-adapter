@@ -20,6 +20,10 @@
 #include "digest.h"
 #include "sa.h"
 #include "test_ctx.h"
+#if (SA_SPECIFICATION_MAJOR >= 3 && ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION < 2) || \
+        SA_SPECIFICATION_MINOR < 1))
+#include "cipher.h"
+#endif
 
 #define MAX_BUFFER_SIZE (64 * 1024)
 
