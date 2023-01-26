@@ -153,7 +153,7 @@ Sec_Result SecOpaqueBuffer_Create(Sec_OpaqueBufferHandle** opaqueBufferHandle, v
 
 Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** opaqueBufferHandle) {
     if (bufLength == 0) {
-        SEC_LOG_ERROR("Argument `length' has value of 0");
+        SEC_LOG_ERROR("Argument `bufLength' has value of 0");
         return SEC_RESULT_FAILURE;
     }
 
