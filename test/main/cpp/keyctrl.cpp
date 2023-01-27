@@ -1612,8 +1612,7 @@ do {
 }
 
 Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey contentKey) {
-#if (SA_SPECIFICATION_MAJOR >= 3 && \
-        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
+#if MIN_SA_VERSION(3, 1, 2)
     return SEC_RESULT_SUCCESS;
 #else
     TestCtx ctx;

@@ -489,9 +489,7 @@ Sec_Result SecCipher_ProcessCtrWithOpaqueDataShift(Sec_CipherHandle* cipherHandl
 Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle,
         SEC_SIZE checkLength, SEC_BYTE* expected) {
 
-#if (SA_SPECIFICATION_MAJOR >= 3 && \
-        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
-
+#if MIN_SA_VERSION(3, 1, 2)
     return SEC_RESULT_UNIMPLEMENTED_FEATURE;
 #else
     if (opaqueBufferHandle == NULL) {

@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2430,7 +2430,11 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
     sa_import_parameters_rsa_private_key_info rsa_parameters;
     sa_import_parameters_ec_private_bytes ec_parameters;
     sa_import_parameters_typej typej_parameters;
+#if MIN_SA_VERSION(3, 1, 2)
+    sa_import_parameters_soc parameters_soc;
+#else
     sa_import_parameters_soc_legacy parameters_soc_legacy;
+#endif
     Sec_KeyHandle* cipherKeyHandle = NULL;
     Sec_KeyHandle* hmacKeyHandle = NULL;
     sa_status status;
@@ -2563,11 +2567,23 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
             *out_key_container = SEC_KEYCONTAINER_SOC;
             memmove(key_buffer, p_data, *key_length);
             key_format = SA_KEY_FORMAT_SOC;
+#if MIN_SA_VERSION(3, 1, 2)
+            // Not sure of the key type, so just give all rights.
+            rights_set_allow_all(&rights, SEC_KEYTYPE_AES_128);
+            size_t length = sizeof(sa_import_parameters_soc);
+            parameters_soc.length[0] = length >> 8 & 0xff;
+            parameters_soc.length[1] = length & 0xff;
+            parameters_soc.version = VERSION_2_KEY_CONTAINER;
+            parameters_soc.default_rights = rights;
+            parameters_soc.object_id = object_id;
+            parameters = &parameters_soc;
+#else
             if (is_jwt_key_container(key_buffer, *key_length)) {
                 parameters = NULL;
             } else {
-                size_t length = sizeof(sa_import_parameters_soc_legacy);
+                // Not sure of the key type, so just give all rights.
                 rights_set_allow_all(&rights, SEC_KEYTYPE_AES_128);
+                size_t length = sizeof(sa_import_parameters_soc_legacy);
                 parameters_soc_legacy.length[0] = length >> 8 & 0xff;
                 parameters_soc_legacy.length[1] = length & 0xff;
                 parameters_soc_legacy.version = VERSION_2_KEY_CONTAINER;
@@ -2575,7 +2591,7 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
                 parameters_soc_legacy.object_id = object_id;
                 parameters = &parameters_soc_legacy;
             }
-
+#endif
             break;
 
         case SEC_KEYCONTAINER_EXPORTED:

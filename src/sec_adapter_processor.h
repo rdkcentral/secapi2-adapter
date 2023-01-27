@@ -38,6 +38,11 @@
 
 #define MAX_QUEUE_SIZE 32
 
+#define MIN_SA_VERSION(x, y, z) ( \
+        (SA_SPECIFICATION_MAJOR > x) || \
+        (SA_SPECIFICATION_MAJOR == x && SA_SPECIFICATION_MINOR > y) || \
+        (SA_SPECIFICATION_MAJOR == x && SA_SPECIFICATION_MINOR == y && SA_SPECIFICATION_REVISION >= z))
+
 typedef struct {
     SA_COMMAND_ID command_id;
     va_list* arguments;
