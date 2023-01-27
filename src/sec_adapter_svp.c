@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2021 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,7 +61,7 @@ sa_svp_buffer get_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBuf
             (opaque_buffer_handle_entry*) calloc(1, sizeof(opaque_buffer_handle_entry));
     opaque_buffer_handle->opaqueBufferHandle = opaqueBufferHandle;
     opaque_buffer_handle->next = processorHandle->opaque_buffer_handle;
-    processorHandle->opaque_buffer_handle =  opaque_buffer_handle;
+    processorHandle->opaque_buffer_handle = opaque_buffer_handle;
     pthread_mutex_unlock(&processorHandle->mutex);
 
     return next_processor_buffer->svp_buffer;
@@ -123,13 +123,14 @@ Sec_Result Sec_OpaqueBufferMalloc(SEC_SIZE bufLength, void** handle, void* param
     return SecOpaqueBuffer_Malloc(bufLength, (Sec_OpaqueBufferHandle**) handle);
 }
 
-Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** opaqueBufferHandle) {
-    if (bufLength == 0) {
-        SEC_LOG_ERROR("Argument `length' has value of 0");
-        return SEC_RESULT_FAILURE;
-    }
+Sec_Result SecOpaqueBuffer_Create(Sec_OpaqueBufferHandle** opaqueBufferHandle, void* svp_memory, SEC_SIZE bufLength) {
     if (opaqueBufferHandle == NULL) {
         SEC_LOG_ERROR("Argument `opaqueBufferHandle' has value of null");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (svp_memory == NULL) {
+        SEC_LOG_ERROR("Argument `svp_memory' has value of null");
         return SEC_RESULT_FAILURE;
     }
 
@@ -139,15 +140,43 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** o
         return SEC_RESULT_FAILURE;
     }
 
-    sa_status status = sa_svp_memory_alloc(&(*opaqueBufferHandle)->svp_memory, bufLength);
+    if (pthread_mutex_init(&(*opaqueBufferHandle)->mutex, NULL) != 0) {
+        SEC_LOG_ERROR("Error initializing mutex");
+        free(*opaqueBufferHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    (*opaqueBufferHandle)->svp_memory = svp_memory;
+    (*opaqueBufferHandle)->size = bufLength;
+    return SEC_RESULT_SUCCESS;
+}
+
+Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** opaqueBufferHandle) {
+    if (bufLength == 0) {
+        SEC_LOG_ERROR("Argument `bufLength' has value of 0");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (opaqueBufferHandle == NULL) {
+        SEC_LOG_ERROR("Argument `opaqueBufferHandle' has value of null");
+        return SEC_RESULT_FAILURE;
+    }
+
+    void* svp_memory = NULL;
+    sa_status status = sa_svp_memory_alloc(&svp_memory, bufLength);
     if (status != SA_STATUS_OK) {
         SEC_LOG_ERROR("sa_svp_memory_alloc failed");
-        free(*opaqueBufferHandle);
         CHECK_STATUS(status)
     }
 
-    (*opaqueBufferHandle)->size = bufLength;
-    return SEC_RESULT_SUCCESS;
+    Sec_Result result = SecOpaqueBuffer_Create(opaqueBufferHandle, svp_memory, bufLength);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecOpaqueBuffer_Create failed");
+        sa_svp_memory_free(svp_memory);
+        return result;
+    }
+
+    return result;
 }
 
 Sec_Result Sec_OpaqueBufferWrite(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC_SIZE offset, void* data,
@@ -205,6 +234,7 @@ Sec_Result SecOpaqueBuffer_Free(Sec_OpaqueBufferHandle* opaqueBufferHandle) {
             release_svp_buffer(opaqueBufferHandle->handles->processorHandle, opaqueBufferHandle);
 
         sa_svp_memory_free(opaqueBufferHandle->svp_memory);
+        pthread_mutex_destroy(&opaqueBufferHandle->mutex);
         SEC_FREE(opaqueBufferHandle);
     }
 
@@ -266,66 +296,6 @@ Sec_Result SecOpaqueBuffer_Release(Sec_OpaqueBufferHandle* opaqueBufferHandle, S
 
     *svpHandle = opaqueBufferHandle->svp_memory;
     SEC_FREE(opaqueBufferHandle);
-    return SEC_RESULT_SUCCESS;
-}
-
-Sec_Result SecOpaqueBuffer_Check(Sec_DigestAlgorithm digestAlgorithm, Sec_OpaqueBufferHandle* opaqueBufferHandle,
-        SEC_SIZE length, SEC_BYTE* expected, SEC_SIZE expectedLength) {
-    if (opaqueBufferHandle == NULL) {
-        SEC_LOG_ERROR("Null pointer arg encountered");
-        return SEC_RESULT_FAILURE;
-    }
-
-    if (expected == NULL) {
-        SEC_LOG_ERROR("Null pointer arg encountered");
-        return SEC_RESULT_FAILURE;
-    }
-
-    sa_digest_algorithm algorithm;
-    switch (digestAlgorithm) {
-        case SEC_DIGESTALGORITHM_SHA1:
-            algorithm = SA_DIGEST_ALGORITHM_SHA1;
-            break;
-
-        case SEC_DIGESTALGORITHM_SHA256:
-            algorithm = SA_DIGEST_ALGORITHM_SHA256;
-            break;
-
-        default:
-            return SEC_RESULT_INVALID_PARAMETERS;
-    }
-
-    if (opaqueBufferHandle->handles != NULL) {
-        sa_status status = sa_invoke(opaqueBufferHandle->handles->processorHandle, SA_SVP_BUFFER_CHECK,
-                opaqueBufferHandle->handles->svp_buffer, (size_t) 0, (size_t) length, algorithm, expected,
-                (size_t) expectedLength);
-
-        // Ignore the result if not supported or allowed.
-        if (status == SA_STATUS_OPERATION_NOT_SUPPORTED || status == SA_STATUS_OPERATION_NOT_ALLOWED)
-            return SEC_RESULT_SUCCESS;
-
-        CHECK_STATUS(status)
-    } else {
-        sa_svp_buffer svp_buffer;
-        if (sa_svp_buffer_create(&svp_buffer, opaqueBufferHandle->svp_memory,
-                    opaqueBufferHandle->size) != SA_STATUS_OK) {
-            SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            return SEC_RESULT_FAILURE;
-        }
-
-        sa_status status = sa_svp_buffer_check(svp_buffer, (size_t) 0, (size_t) length, algorithm, expected,
-                (size_t) expectedLength);
-        void* svp_memory;
-        size_t svp_size;
-        sa_svp_buffer_release(&svp_memory, &svp_size, svp_buffer);
-
-        // Ignore the result if not supported or allowed.
-        if (status == SA_STATUS_OPERATION_NOT_SUPPORTED || status == SA_STATUS_OPERATION_NOT_ALLOWED)
-            return SEC_RESULT_SUCCESS;
-
-        CHECK_STATUS(status)
-    }
-
     return SEC_RESULT_SUCCESS;
 }
 

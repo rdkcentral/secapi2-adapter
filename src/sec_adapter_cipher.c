@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
  */
 
 #include "sec_adapter_cipher.h" // NOLINT
+#include "sa.h"
 #include "sa_cenc.h"
 #include <stdbool.h>
 
@@ -164,7 +165,7 @@ Sec_Result SecCipher_UpdateIV(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv) {
     sa_status status;
     if (key_type == SEC_KEYTYPE_AES_128 || key_type == SEC_KEYTYPE_AES_256) {
         status = sa_invoke(cipherHandle->processorHandle, SA_CRYPTO_CIPHER_UPDATE_IV, cipherHandle->cipher.context, iv,
-                (size_t)SEC_AES_BLOCK_SIZE);
+                (size_t) SEC_AES_BLOCK_SIZE);
         CHECK_STATUS(status)
         return SEC_RESULT_SUCCESS;
     }
@@ -487,6 +488,12 @@ Sec_Result SecCipher_ProcessCtrWithOpaqueDataShift(Sec_CipherHandle* cipherHandl
  */
 Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle,
         SEC_SIZE checkLength, SEC_BYTE* expected) {
+
+#if (SA_SPECIFICATION_MAJOR >= 3 && \
+        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
+
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+#else
     if (opaqueBufferHandle == NULL) {
         SEC_LOG_ERROR("Null inputHandle");
         return SEC_RESULT_FAILURE;
@@ -515,10 +522,11 @@ Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBu
 
     const Sec_Key* key = get_key(cipherHandle->keyHandle);
     status = sa_invoke(cipherHandle->processorHandle, SA_SVP_KEY_CHECK, key->handle, &in_buffer,
-            (size_t)SEC_AES_BLOCK_SIZE, expected, (size_t)SEC_AES_BLOCK_SIZE);
+            (size_t) SEC_AES_BLOCK_SIZE, expected, (size_t) SEC_AES_BLOCK_SIZE);
 
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
+#endif
 }
 
 /**
@@ -969,7 +977,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
     sample.out = &out_buffer;
     sample.in = &in_buffer;
 
-    sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, (size_t)1, &sample);
+    sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, (size_t) 1, &sample);
     free(subsample_lengths);
     if (status != SA_STATUS_OK) {
         SecOpaqueBuffer_Free(*opaqueBufferHandle);

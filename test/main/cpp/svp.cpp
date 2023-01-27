@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2021 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "svp.h"
-#include "cipher.h"
+#include "svp.h" // NOLINT
 #include "digest.h"
+#include "sa.h"
 #include "test_ctx.h"
+#if (SA_SPECIFICATION_MAJOR >= 3 && ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION < 2) || \
+        SA_SPECIFICATION_MINOR < 1))
+#include "cipher.h"
+#endif
 
 #define MAX_BUFFER_SIZE (64 * 1024)
 
@@ -86,6 +90,11 @@ Sec_Result testSetTime() {
 }
 
 Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc) {
+#if (SA_SPECIFICATION_MAJOR >= 3 && \
+        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
+
+    return SEC_RESULT_SUCCESS;
+#else
     TestCtx ctx;
     if (ctx.init() != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("TestCtx.init failed");
@@ -156,8 +165,8 @@ Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Stora
 
     SecOpaqueBuffer_Free(opaqueBufferHandle);
     SecCipher_Release(cipherHandle);
-
     return SEC_RESULT_SUCCESS;
+#endif
 }
 
 Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
@@ -426,15 +435,6 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
         return SEC_RESULT_FAILURE;
     }
 
-    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle1, size, digest.data(),
-                digest.size()) != SEC_RESULT_SUCCESS) {
-        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
-        SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
-        SecCipher_Release(cipherHandle1);
-        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
-        return SEC_RESULT_FAILURE;
-    }
-
     SecOpaqueBuffer_Free(outOpaqueBufferHandle1);
     SecCipher_Release(cipherHandle1);
     TestCtx ctx2;
@@ -480,15 +480,6 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
         return SEC_RESULT_FAILURE;
     }
 
-    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle2, size, digest.data(),
-                digest.size()) != SEC_RESULT_SUCCESS) {
-        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
-        SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
-        SecCipher_Release(cipherHandle2);
-        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
-        return SEC_RESULT_FAILURE;
-    }
-
     SecOpaqueBuffer_Free(outOpaqueBufferHandle2);
     SecCipher_Release(cipherHandle2);
     TestCtx ctx3;
@@ -526,15 +517,6 @@ Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Se
         SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
         SecCipher_Release(cipherHandle3);
         SEC_LOG_ERROR("SecCipher_ProcessOpaque failed");
-        return SEC_RESULT_FAILURE;
-    }
-
-    if (SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, outOpaqueBufferHandle3, size, digest.data(),
-                digest.size()) != SEC_RESULT_SUCCESS) {
-        SecOpaqueBuffer_Free(inOpaqueBufferHandle);
-        SecOpaqueBuffer_Free(outOpaqueBufferHandle3);
-        SecCipher_Release(cipherHandle3);
-        SEC_LOG_ERROR("SecOpaqueBuffer_Check failed");
         return SEC_RESULT_FAILURE;
     }
 

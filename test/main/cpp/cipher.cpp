@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1234,10 +1234,6 @@ Sec_Result testProcessOpaqueWithMap(SEC_OBJECTID id, TestKey key, TestKc kc, Sec
         return result;
     }
 
-    //check if results match
-    auto expected = digestOpenSSL(SEC_DIGESTALGORITHM_SHA256, clear);
-    result = SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, opaqueBufferHandle, clear.size(), expected.data(),
-            expected.size());
     delete[] map;
     SecOpaqueBuffer_Free(opaqueBufferHandle);
     return result;
@@ -1329,10 +1325,6 @@ Sec_Result testProcessOpaqueWithMapVariable(SEC_OBJECTID id, TestKey key, TestKc
         return result;
     }
 
-    //check if results match
-    auto expected = digestOpenSSL(SEC_DIGESTALGORITHM_SHA256, clear);
-    result = SecOpaqueBuffer_Check(SEC_DIGESTALGORITHM_SHA256, opaqueBufferHandle, clear.size(), expected.data(),
-            expected.size());
     delete[] map;
     SecOpaqueBuffer_Free(opaqueBufferHandle);
     return result;

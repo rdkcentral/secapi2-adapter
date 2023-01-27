@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,7 +133,7 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     }
 
     if (pthread_mutex_init(&(*processorHandle)->mutex, NULL) != 0) {
-        SEC_LOG_ERROR("Error creating app_dir");
+        SEC_LOG_ERROR("Error initializing mutex");
         SEC_FREE((*processorHandle)->app_dir);
         SEC_FREE((*processorHandle)->global_dir);
         SEC_FREE(*processorHandle);

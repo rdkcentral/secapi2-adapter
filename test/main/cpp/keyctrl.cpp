@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "keyctrl.h" // NOLINT
 #include "jtype.h"
+#include "sa.h"
 #include "sec_security_comcastids.h"
 #include "sec_security_utils.h"
 #include "sign.h"
@@ -1611,6 +1612,10 @@ do {
 }
 
 Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey contentKey) {
+#if (SA_SPECIFICATION_MAJOR >= 3 && \
+        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
+    return SEC_RESULT_SUCCESS;
+#else
     TestCtx ctx;
     Sec_Result result = SEC_RESULT_FAILURE;
     SEC_BYTE jtypeRights[SEC_KEYOUTPUTRIGHT_NUM];
@@ -1701,6 +1706,7 @@ Sec_Result testKeyCtrlSvpCheckOpaque(int version, const char* alg, TestKey conte
         SecKey_Release(keyHandle);
 
     return result;
+#endif
 }
 
 /* Only Opaque buffers can be used when SVP is required */

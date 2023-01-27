@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2023 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,10 +145,10 @@ Sec_Result SecSignature_Process(Sec_SignatureHandle* signatureHandle, SEC_BYTE* 
         const Sec_Key* key = get_key(signatureHandle->keyHandle);
         // Get the out_length since it is not given to us.
         sa_status status = sa_invoke(signatureHandle->processorHandle, SA_CRYPTO_SIGN, NULL, &out_length,
-                signature_algorithm, key->handle, input, (size_t)inputSize, parameters);
+                signature_algorithm, key->handle, input, (size_t) inputSize, parameters);
         CHECK_STATUS(status)
         status = sa_invoke(signatureHandle->processorHandle, SA_CRYPTO_SIGN, signature, &out_length,
-                signature_algorithm, key->handle, input, (size_t)inputSize, parameters);
+                signature_algorithm, key->handle, input, (size_t) inputSize, parameters);
         CHECK_STATUS(status)
         *signatureSize = out_length;
     } else {
