@@ -19,9 +19,9 @@
 #include "svp.h" // NOLINT
 #include "digest.h"
 #include "sa.h"
+#include "sec_adapter_processor.h"
 #include "test_ctx.h"
-#if (SA_SPECIFICATION_MAJOR >= 3 && ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION < 2) || \
-        SA_SPECIFICATION_MINOR < 1))
+#if !(MIN_SA_VERSION(3, 1, 2))
 #include "cipher.h"
 #endif
 
@@ -90,9 +90,7 @@ Sec_Result testSetTime() {
 }
 
 Sec_Result testKeycheckOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc) {
-#if (SA_SPECIFICATION_MAJOR >= 3 && \
-        ((SA_SPECIFICATION_MINOR == 1 && SA_SPECIFICATION_REVISION >= 2) || SA_SPECIFICATION_MINOR > 1))
-
+#if MIN_SA_VERSION(3, 1, 2)
     return SEC_RESULT_SUCCESS;
 #else
     TestCtx ctx;
