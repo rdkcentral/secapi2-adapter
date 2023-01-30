@@ -1,5 +1,5 @@
 /**
-* Copyright 2020-2022 Comcast Cable Communications Management, LLC
+* Copyright 2020-2023 Comcast Cable Communications Management, LLC
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@ static SEC_BOOL g_sec_openssl_inited = SEC_FALSE;
 static RSA_METHOD* rsa_method = NULL;
 #endif
 
+static ENGINE* engine = NULL;
+
 static void Sec_ShutdownOpenSSL() {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
     if (rsa_method != NULL) {
@@ -36,11 +38,10 @@ static void Sec_ShutdownOpenSSL() {
     }
 #endif
 
-    ENGINE* engine = ENGINE_by_id(ENGINE_ID);
     if (engine != NULL) {
-        ENGINE_remove(engine);
         ENGINE_finish(engine);
         ENGINE_free(engine);
+        engine = NULL;
     }
 }
 
@@ -198,7 +199,7 @@ static RSA_METHOD g_sec_openssl_rsamethod = {
 #endif
 
 static void ENGINE_load_securityapi(void) {
-    ENGINE* engine = ENGINE_new();
+    engine = ENGINE_new();
     if (engine == NULL) {
         SEC_LOG_ERROR("ENGINE_new failed");
         return;
@@ -206,30 +207,40 @@ static void ENGINE_load_securityapi(void) {
 
     if (!ENGINE_set_id(engine, ENGINE_ID)) {
         ENGINE_free(engine);
+        engine = NULL;
         return;
     }
     if (!ENGINE_set_name(engine, "SecurityApi engine")) {
         ENGINE_free(engine);
+        engine = NULL;
         return;
     }
 
     if (!ENGINE_init(engine)) {
         ENGINE_free(engine);
+        engine = NULL;
         return;
     }
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     if (!ENGINE_set_RSA(engine, &g_sec_openssl_rsamethod)) {
 #else
+    if (rsa_method == NULL) {
+        rsa_method = RSA_meth_new("securityapi RSA method", RSA_METHOD_FLAG_NO_CHECK | RSA_FLAG_EXT_PKEY);
+        RSA_meth_set_pub_enc(rsa_method, Sec_OpenSSLPubEncrypt);
+        RSA_meth_set_priv_dec(rsa_method, Sec_OpenSSLPrivDecrypt);
+        RSA_meth_set_sign(rsa_method, Sec_OpenSSLPrivSign);
+        RSA_meth_set_verify(rsa_method, Sec_OpenSSLPubVerify);
+    }
+
     if (!ENGINE_set_RSA(engine, rsa_method)) {
 #endif
-        ENGINE_remove(engine);
+        ENGINE_finish(engine);
         ENGINE_free(engine);
+        engine = NULL;
         return;
     }
 
-    ENGINE_add(engine);
-    ENGINE_free(engine);
     ERR_clear_error();
 }
 
@@ -239,16 +250,7 @@ void Sec_InitOpenSSL() {
     pthread_mutex_lock(&init_openssl_mutex);
 
     if (g_sec_openssl_inited != SEC_TRUE) {
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-        if (rsa_method == NULL) {
-            rsa_method = RSA_meth_new("securityapi RSA method", RSA_METHOD_FLAG_NO_CHECK | RSA_FLAG_EXT_PKEY);
-            RSA_meth_set_pub_enc(rsa_method, Sec_OpenSSLPubEncrypt);
-            RSA_meth_set_priv_dec(rsa_method, Sec_OpenSSLPrivDecrypt);
-            RSA_meth_set_sign(rsa_method, Sec_OpenSSLPrivSign);
-            RSA_meth_set_verify(rsa_method, Sec_OpenSSLPubVerify);
-        }
-
-#else
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
         ERR_load_crypto_strings();
         OpenSSL_add_all_algorithms();
         OpenSSL_add_all_ciphers();
@@ -257,7 +259,6 @@ void Sec_InitOpenSSL() {
 
         ENGINE_load_builtin_engines();
         ENGINE_register_all_complete();
-        ENGINE_load_securityapi();
 
         if (atexit(Sec_ShutdownOpenSSL) != 0) {
             SEC_LOG_ERROR("atexit failed");
@@ -265,6 +266,10 @@ void Sec_InitOpenSSL() {
         }
 
         g_sec_openssl_inited = SEC_TRUE;
+    }
+
+    if (engine == NULL) {
+        ENGINE_load_securityapi();
     }
 
     pthread_mutex_unlock(&init_openssl_mutex);
@@ -278,23 +283,19 @@ void Sec_PrintOpenSSLVersion() {
 RSA* SecKey_ToEngineRSA(Sec_KeyHandle* keyHandle) {
     Sec_RSARawPublicKey pubKey;
     RSA* rsa = NULL;
-    ENGINE* engine = NULL;
 
-    engine = ENGINE_by_id(ENGINE_ID);
     if (engine == NULL) {
-        SEC_LOG_ERROR("ENGINE_by_id failed");
+        SEC_LOG_ERROR("engine not initialized");
         return NULL;
     }
 
     if (SEC_RESULT_SUCCESS != SecKey_ExtractRSAPublicKey(keyHandle, &pubKey)) {
-        ENGINE_free(engine);
         SEC_LOG_ERROR("SecKey_ExtractRSAPublicKey failed");
         return NULL;
     }
 
     rsa = RSA_new_method(engine);
     if (rsa == NULL) {
-        ENGINE_free(engine);
         SEC_LOG_ERROR("RSA_new_method failed");
         return NULL;
     }
@@ -308,30 +309,25 @@ RSA* SecKey_ToEngineRSA(Sec_KeyHandle* keyHandle) {
 #endif
 
     RSA_set_app_data(rsa, keyHandle);
-    ENGINE_free(engine);
     return rsa;
 }
 
 RSA* SecKey_ToEngineRSAWithCert(Sec_KeyHandle* keyHandle, Sec_CertificateHandle* certificateHandle) {
     Sec_RSARawPublicKey pubKey;
     RSA* rsa = NULL;
-    ENGINE* engine = NULL;
 
-    engine = ENGINE_by_id(ENGINE_ID);
     if (engine == NULL) {
         SEC_LOG_ERROR("ENGINE_by_id failed");
         return NULL;
     }
 
     if (SEC_RESULT_SUCCESS != SecCertificate_ExtractRSAPublicKey(certificateHandle, &pubKey)) {
-        ENGINE_free(engine);
         SEC_LOG_ERROR("SecKey_ExtractRSAPublicKey failed");
         return NULL;
     }
 
     rsa = RSA_new_method(engine);
     if (rsa == NULL) {
-        ENGINE_free(engine);
         SEC_LOG_ERROR("RSA_new_method failed");
         return NULL;
     }
@@ -345,7 +341,6 @@ RSA* SecKey_ToEngineRSAWithCert(Sec_KeyHandle* keyHandle, Sec_CertificateHandle*
 #endif
 
     RSA_set_app_data(rsa, keyHandle);
-    ENGINE_free(engine);
     return rsa;
 }
 
