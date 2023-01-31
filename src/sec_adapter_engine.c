@@ -20,15 +20,14 @@
 #include <openssl/engine.h>
 #include <pthread.h>
 
-#define ENGINE_ID "securityapi"
+#define SECAPI_ENGINE_ID "securityapi"
+#define OPENSSL_ENGINE_ID "openssl"
 
 static SEC_BOOL g_sec_openssl_inited = SEC_FALSE;
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 static RSA_METHOD* rsa_method = NULL;
 #endif
-
-static ENGINE* engine = NULL;
 
 static void Sec_ShutdownOpenSSL() {
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -38,10 +37,11 @@ static void Sec_ShutdownOpenSSL() {
     }
 #endif
 
+    ENGINE* engine = ENGINE_by_id(SECAPI_ENGINE_ID);
     if (engine != NULL) {
+        ENGINE_remove(engine);
         ENGINE_finish(engine);
         ENGINE_free(engine);
-        engine = NULL;
     }
 }
 
@@ -199,26 +199,23 @@ static RSA_METHOD g_sec_openssl_rsamethod = {
 #endif
 
 static void ENGINE_load_securityapi(void) {
-    engine = ENGINE_new();
+    ENGINE* engine = ENGINE_new();
     if (engine == NULL) {
         SEC_LOG_ERROR("ENGINE_new failed");
         return;
     }
 
-    if (!ENGINE_set_id(engine, ENGINE_ID)) {
+    if (!ENGINE_set_id(engine, SECAPI_ENGINE_ID)) {
         ENGINE_free(engine);
-        engine = NULL;
         return;
     }
     if (!ENGINE_set_name(engine, "SecurityApi engine")) {
         ENGINE_free(engine);
-        engine = NULL;
         return;
     }
 
     if (!ENGINE_init(engine)) {
         ENGINE_free(engine);
-        engine = NULL;
         return;
     }
 
@@ -235,12 +232,13 @@ static void ENGINE_load_securityapi(void) {
 
     if (!ENGINE_set_RSA(engine, rsa_method)) {
 #endif
-        ENGINE_finish(engine);
+        ENGINE_remove(engine);
         ENGINE_free(engine);
-        engine = NULL;
         return;
     }
 
+    ENGINE_add(engine);
+    ENGINE_free(engine);
     ERR_clear_error();
 }
 
@@ -260,16 +258,27 @@ void Sec_InitOpenSSL() {
         ENGINE_load_builtin_engines();
         ENGINE_register_all_complete();
 
+        ENGINE* engine = ENGINE_by_id(OPENSSL_ENGINE_ID);
+        if (engine == NULL) {
+            ENGINE_load_openssl();
+            engine = ENGINE_by_id(OPENSSL_ENGINE_ID);
+            if (engine == NULL) {
+                SEC_LOG_ERROR("ENGINE_load_openssl failed");
+                return;
+            }
+
+            ENGINE_set_default(engine, ENGINE_METHOD_ALL);
+            ENGINE_free(engine);
+        }
+
+        ENGINE_load_securityapi();
+
         if (atexit(Sec_ShutdownOpenSSL) != 0) {
             SEC_LOG_ERROR("atexit failed");
             return;
         }
 
         g_sec_openssl_inited = SEC_TRUE;
-    }
-
-    if (engine == NULL) {
-        ENGINE_load_securityapi();
     }
 
     pthread_mutex_unlock(&init_openssl_mutex);
@@ -283,19 +292,23 @@ void Sec_PrintOpenSSLVersion() {
 RSA* SecKey_ToEngineRSA(Sec_KeyHandle* keyHandle) {
     Sec_RSARawPublicKey pubKey;
     RSA* rsa = NULL;
+    ENGINE* engine = NULL;
 
+    engine = ENGINE_by_id(SECAPI_ENGINE_ID);
     if (engine == NULL) {
-        SEC_LOG_ERROR("engine not initialized");
+        SEC_LOG_ERROR("ENGINE_by_id failed");
         return NULL;
     }
 
     if (SEC_RESULT_SUCCESS != SecKey_ExtractRSAPublicKey(keyHandle, &pubKey)) {
+        ENGINE_free(engine);
         SEC_LOG_ERROR("SecKey_ExtractRSAPublicKey failed");
         return NULL;
     }
 
     rsa = RSA_new_method(engine);
     if (rsa == NULL) {
+        ENGINE_free(engine);
         SEC_LOG_ERROR("RSA_new_method failed");
         return NULL;
     }
@@ -309,25 +322,30 @@ RSA* SecKey_ToEngineRSA(Sec_KeyHandle* keyHandle) {
 #endif
 
     RSA_set_app_data(rsa, keyHandle);
+    ENGINE_free(engine);
     return rsa;
 }
 
 RSA* SecKey_ToEngineRSAWithCert(Sec_KeyHandle* keyHandle, Sec_CertificateHandle* certificateHandle) {
     Sec_RSARawPublicKey pubKey;
     RSA* rsa = NULL;
+    ENGINE* engine = NULL;
 
+    engine = ENGINE_by_id(SECAPI_ENGINE_ID);
     if (engine == NULL) {
         SEC_LOG_ERROR("ENGINE_by_id failed");
         return NULL;
     }
 
     if (SEC_RESULT_SUCCESS != SecCertificate_ExtractRSAPublicKey(certificateHandle, &pubKey)) {
+        ENGINE_free(engine);
         SEC_LOG_ERROR("SecKey_ExtractRSAPublicKey failed");
         return NULL;
     }
 
     rsa = RSA_new_method(engine);
     if (rsa == NULL) {
+        ENGINE_free(engine);
         SEC_LOG_ERROR("RSA_new_method failed");
         return NULL;
     }
@@ -341,6 +359,7 @@ RSA* SecKey_ToEngineRSAWithCert(Sec_KeyHandle* keyHandle, Sec_CertificateHandle*
 #endif
 
     RSA_set_app_data(rsa, keyHandle);
+    ENGINE_free(engine);
     return rsa;
 }
 
