@@ -106,6 +106,8 @@ set_target_properties(sec_api PROPERTIES
         VERSION 2.3.2.26
         )
 
+target_compile_options(sec_api PRIVATE -Wno-deprecated-declarations)
+
 target_link_libraries(sec_api
         PRIVATE
         ${SACLIENT_LIBRARY}
@@ -147,6 +149,8 @@ target_include_directories(sec_api_2_adapter_test
         test/main/cpp
         test/openssl/headers
         )
+
+target_compile_options(sec_api_2_adapter_test PRIVATE -Wno-deprecated-declarations)
 
 target_link_libraries(sec_api_2_adapter_test
         PRIVATE
