@@ -103,7 +103,7 @@ add_library(sec_api SHARED
 set_target_properties(sec_api PROPERTIES
         LINKER_LANGUAGE C
         SO_VERSION 2.3
-        VERSION 2.3.2.25
+        VERSION 2.3.2.26
         )
 
 target_link_libraries(sec_api
