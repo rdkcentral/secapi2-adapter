@@ -21,6 +21,7 @@
 #include <pthread.h>
 
 #define SECAPI_ENGINE_ID "securityapi"
+#define OPENSSL_ENGINE_ID "openssl"
 
 static SEC_BOOL g_sec_openssl_inited = SEC_FALSE;
 
@@ -276,6 +277,7 @@ void Sec_InitOpenSSL() {
             ENGINE_set_default(engine, ENGINE_METHOD_ALL);
             ENGINE_free(engine);
         }
+
         ENGINE_load_securityapi();
 
         if (atexit(Sec_ShutdownOpenSSL) != 0) {
@@ -297,9 +299,8 @@ void Sec_PrintOpenSSLVersion() {
 RSA* SecKey_ToEngineRSA(Sec_KeyHandle* keyHandle) {
     Sec_RSARawPublicKey pubKey;
     RSA* rsa = NULL;
-    ENGINE* engine = NULL;
 
-    engine = ENGINE_by_id(SECAPI_ENGINE_ID);
+    ENGINE* engine = ENGINE_by_id(SECAPI_ENGINE_ID);
     if (engine == NULL) {
         SEC_LOG_ERROR("ENGINE_by_id failed");
         return NULL;
@@ -334,9 +335,8 @@ RSA* SecKey_ToEngineRSA(Sec_KeyHandle* keyHandle) {
 RSA* SecKey_ToEngineRSAWithCert(Sec_KeyHandle* keyHandle, Sec_CertificateHandle* certificateHandle) {
     Sec_RSARawPublicKey pubKey;
     RSA* rsa = NULL;
-    ENGINE* engine = NULL;
 
-    engine = ENGINE_by_id(SECAPI_ENGINE_ID);
+    ENGINE* engine = ENGINE_by_id(SECAPI_ENGINE_ID);
     if (engine == NULL) {
         SEC_LOG_ERROR("ENGINE_by_id failed");
         return NULL;
