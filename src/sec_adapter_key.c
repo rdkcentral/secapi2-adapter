@@ -1582,19 +1582,25 @@ SEC_BOOL SecKey_IsProvisioned(Sec_ProcessorHandle* processorHandle,
  * @return
  */
 SEC_OBJECTID SecKey_ObtainFreeObjectId(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID base, SEC_OBJECTID top) {
-    SEC_OBJECTID id;
-    Sec_KeyHandle* keyHandle;
-    Sec_Result result;
+    SEC_OBJECTID object_id = SEC_OBJECTID_INVALID;
+    Sec_StorageLoc location;
 
-    for (id = base; id < top; ++id) {
-        result = SecKey_GetInstance(processorHandle, id, &keyHandle);
-        if (result == SEC_RESULT_SUCCESS)
-            SecKey_Release(keyHandle);
-        else
-            return id;
+    Sec_KeyData* key_data = calloc(1, sizeof(Sec_KeyData));
+    if (key_data == NULL) {
+        SEC_LOG_ERROR("calloc failed");
+        return SEC_OBJECTID_INVALID;
     }
 
-    return SEC_OBJECTID_INVALID;
+    for (SEC_OBJECTID id = base; id < top; ++id) {
+        Sec_Result result = retrieve_key_data(processorHandle, id, &location, key_data);
+        if (result != SEC_RESULT_SUCCESS) {
+            object_id = id;
+            break;
+        }
+    }
+
+    SEC_FREE(key_data);
+    return object_id;
 }
 
 /**
