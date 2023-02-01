@@ -264,6 +264,18 @@ void Sec_InitOpenSSL() {
 #endif
         ENGINE_load_builtin_engines();
         ENGINE_register_all_complete();
+        ENGINE* engine = ENGINE_by_id(OPENSSL_ENGINE_ID);
+        if (engine == NULL) {
+            ENGINE_load_openssl();
+            engine = ENGINE_by_id(OPENSSL_ENGINE_ID);
+            if (engine == NULL) {
+                SEC_LOG_ERROR("ENGINE_load_openssl failed");
+                return;
+            }
+
+            ENGINE_set_default(engine, ENGINE_METHOD_ALL);
+            ENGINE_free(engine);
+        }
         ENGINE_load_securityapi();
 
         if (atexit(Sec_ShutdownOpenSSL) != 0) {
