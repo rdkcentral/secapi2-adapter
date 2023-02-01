@@ -224,21 +224,21 @@ static void ENGINE_load_securityapi(void) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     if (!ENGINE_set_RSA(engine, &g_sec_openssl_rsamethod)) {
 #else
-    if (!ENGINE_set_RSA(engine, rsa_method)) {
+    if (rsa_method == NULL) {
+        rsa_method = RSA_meth_new("securityapi RSA method", RSA_METHOD_FLAG_NO_CHECK | RSA_FLAG_EXT_PKEY);
         if (rsa_method == NULL) {
-            rsa_method = RSA_meth_new("securityapi RSA method", RSA_METHOD_FLAG_NO_CHECK | RSA_FLAG_EXT_PKEY);
-            if (rsa_method == NULL) {
-                SEC_LOG_ERROR("RSA_meth_new failed");
-                ENGINE_free(engine);
-                return;
-            }
-
-            RSA_meth_set_pub_enc(rsa_method, Sec_OpenSSLPubEncrypt);
-            RSA_meth_set_priv_dec(rsa_method, Sec_OpenSSLPrivDecrypt);
-            RSA_meth_set_sign(rsa_method, Sec_OpenSSLPrivSign);
-            RSA_meth_set_verify(rsa_method, Sec_OpenSSLPubVerify);
+            SEC_LOG_ERROR("RSA_meth_new failed");
+            ENGINE_free(engine);
+            return;
         }
 
+        RSA_meth_set_pub_enc(rsa_method, Sec_OpenSSLPubEncrypt);
+        RSA_meth_set_priv_dec(rsa_method, Sec_OpenSSLPrivDecrypt);
+        RSA_meth_set_sign(rsa_method, Sec_OpenSSLPrivSign);
+        RSA_meth_set_verify(rsa_method, Sec_OpenSSLPubVerify);
+    }
+
+    if (!ENGINE_set_RSA(engine, rsa_method)) {
 #endif
         ENGINE_remove(engine);
         ENGINE_free(engine);
