@@ -67,6 +67,13 @@ Sec_Result SecCipher_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Ciphe
     Sec_Result result;
     Sec_KeyProperties key_properties;
 
+    if (cipherHandle == NULL) {
+        SEC_LOG_ERROR("cipherHandle is NULL");
+        return SEC_RESULT_FAILURE;
+    }
+
+    *cipherHandle = NULL;
+
     result = SecKey_GetProperties(keyHandle, &key_properties);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecKey_GetProperties failed");
