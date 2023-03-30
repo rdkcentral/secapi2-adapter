@@ -886,8 +886,10 @@ Sec_Result SecKey_Derive_CMAC_AES128(Sec_ProcessorHandle* processorHandle, SEC_O
     Sec_KeyHandle* keyHandle;
 
     Sec_Result result = SecKey_GetInstance(processorHandle, derivationKey, &keyHandle);
-    if (result != SEC_RESULT_SUCCESS)
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_GetInstance failed");
         return result;
+    }
 
     Sec_Key key;
     result = derive_kdf_cmac(processorHandle, typeDerived, otherData, otherDataSize, counter, counterSize,
@@ -1066,6 +1068,7 @@ Sec_Result SecKey_Derive_HKDF_BaseKey(Sec_ProcessorHandle* processorHandle, SEC_
 
     Sec_Result result = SecKey_GetInstance(processorHandle, baseKeyId, &keyHandle);
     if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_GetInstance failed");
         return result;
     }
 
@@ -1087,6 +1090,7 @@ Sec_Result SecKey_Derive_ConcatKDF_BaseKey(Sec_ProcessorHandle* processorHandle,
 
     Sec_Result result = SecKey_GetInstance(processorHandle, baseKeyId, &keyHandle);
     if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_GetInstance failed");
         return result;
     }
 
@@ -1559,18 +1563,22 @@ Sec_KeyContainer SecKey_GetClearContainer(Sec_KeyType key_type) {
  *
  * @return 1 if an object has been provisioned, 0 if it has not been.
  */
-SEC_BOOL SecKey_IsProvisioned(Sec_ProcessorHandle* processorHandle,
-        SEC_OBJECTID object_id) {
+SEC_BOOL SecKey_IsProvisioned(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID object_id) {
     Sec_KeyHandle* keyHandle;
 
     if (SEC_OBJECTID_INVALID == object_id)
         return SEC_FALSE;
 
-    if (SecKey_GetInstance(processorHandle, object_id, &keyHandle) != SEC_RESULT_SUCCESS)
+    Sec_StorageLoc location;
+    Sec_KeyData* key_data = calloc(1, sizeof(Sec_KeyData));
+    if (key_data == NULL) {
+        SEC_LOG_ERROR("calloc failed");
         return SEC_FALSE;
+    }
 
-    SecKey_Release(keyHandle);
-    return SEC_TRUE;
+    Sec_Result result = retrieve_key_data(processorHandle, object_id, &location, key_data);
+    SEC_FREE(key_data);
+    return result == SEC_RESULT_SUCCESS;
 }
 
 /**
@@ -1627,17 +1635,17 @@ Sec_Result SecKey_ComputeKeyDigest(Sec_ProcessorHandle* processorHandle, SEC_OBJ
     Sec_Result result = SEC_RESULT_FAILURE;
     do {
         if (SecKey_GetInstance(processorHandle, key_id, &keyHandle) != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("SecKey_GetInstance returned error");
+            SEC_LOG_ERROR("SecKey_GetInstance failed");
             break;
         }
 
         if (SecDigest_GetInstance(processorHandle, alg, &digestHandle) != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("SecDigest_GetInstance returned error");
+            SEC_LOG_ERROR("SecDigest_GetInstance failed");
             break;
         }
 
         if (SecDigest_UpdateWithKey(digestHandle, keyHandle) != SEC_RESULT_SUCCESS) {
-            SEC_LOG_ERROR("SecDigest_UpdateWithKey returned error");
+            SEC_LOG_ERROR("SecDigest_UpdateWithKey failed");
             break;
         }
 
@@ -2611,14 +2619,17 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
             key_format = SA_KEY_FORMAT_TYPEJ;
 
             result = SecKey_GetInstance(processorHandle, SEC_OBJECTID_COMCAST_XCALSESSIONENCKEY, &cipherKeyHandle);
-            if (result != SEC_RESULT_SUCCESS)
+            if (result != SEC_RESULT_SUCCESS) {
+                SEC_LOG_ERROR("SecKey_GetInstance failed");
                 return result;
+            }
 
             result = SecKey_GetInstance(processorHandle, SEC_OBJECTID_COMCAST_XCALSESSIONMACKEY, &hmacKeyHandle);
             if (result != SEC_RESULT_SUCCESS) {
                 if (cipherKeyHandle != NULL)
                     SecKey_Release(cipherKeyHandle);
 
+                SEC_LOG_ERROR("SecKey_GetInstance failed");
                 return result;
             }
 
