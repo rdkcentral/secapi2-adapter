@@ -179,6 +179,23 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** o
     return result;
 }
 
+Sec_Result SecOpaqueBuffer_Malloc2(SEC_SIZE bufLength, Sec_ProcessorHandle* processorHandle,
+        Sec_OpaqueBufferHandle** opaqueBufferHandle) {
+    Sec_Result result = SecOpaqueBuffer_Malloc(bufLength, opaqueBufferHandle);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
+        return result;
+    }
+
+    sa_svp_buffer svp_buffer = get_svp_buffer(processorHandle, *opaqueBufferHandle);
+    if (svp_buffer == INVALID_HANDLE) {
+        SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return result;
+}
+
 Sec_Result Sec_OpaqueBufferWrite(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC_SIZE offset, void* data,
         SEC_SIZE length) {
     return SecOpaqueBuffer_Write(opaqueBufferHandle, offset, data, length);
