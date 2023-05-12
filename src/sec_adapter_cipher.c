@@ -445,14 +445,14 @@ Sec_Result SecCipher_ProcessOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBuf
             out_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
             out_buffer.context.svp.offset = 0;
             out_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, outOpaqueBufferHandle);
-            if (out_buffer.context.svp.buffer == -1)
+            if (out_buffer.context.svp.buffer == INVALID_HANDLE)
                 return SEC_RESULT_FAILURE;
 
             sa_buffer in_buffer;
             in_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
             in_buffer.context.svp.offset = 0;
             in_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, inOpaqueBufferHandle);
-            if (in_buffer.context.svp.buffer == -1)
+            if (in_buffer.context.svp.buffer == INVALID_HANDLE)
                 return SEC_RESULT_FAILURE;
 
             size_t bytes_to_process = inputSize;
@@ -519,7 +519,7 @@ Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBu
     in_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
     in_buffer.context.svp.offset = 0;
     in_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, opaqueBufferHandle);
-    if (in_buffer.context.svp.buffer == -1)
+    if (in_buffer.context.svp.buffer == INVALID_HANDLE)
         return SEC_RESULT_FAILURE;
 
     if (cipherHandle->mode == SEC_CIPHERMODE_ENCRYPT)
@@ -957,7 +957,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
     out_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
     out_buffer.context.svp.offset = 0;
     out_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, *opaqueBufferHandle);
-    if (out_buffer.context.svp.buffer == -1) {
+    if (out_buffer.context.svp.buffer == INVALID_HANDLE) {
         free(subsample_lengths);
         SecOpaqueBuffer_Free(*opaqueBufferHandle);
         *opaqueBufferHandle = NULL;

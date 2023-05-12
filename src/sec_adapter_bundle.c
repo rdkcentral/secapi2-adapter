@@ -161,26 +161,26 @@ Sec_Result SecBundle_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_OBJEC
         Sec_BundleHandle** bundleHandle) {
     Sec_Result result;
     Sec_StorageLoc location;
-    Sec_BundleData bundle_data;
 
     *bundleHandle = NULL;
-
     CHECK_PROCHANDLE(processorHandle)
 
     if (object_id == SEC_OBJECTID_INVALID)
         return SEC_RESULT_INVALID_PARAMETERS;
-
-    result = Sec_RetrieveBundleData(processorHandle, object_id, &location, &bundle_data);
-    if (result != SEC_RESULT_SUCCESS)
-        return result;
 
     *bundleHandle = calloc(1, sizeof(Sec_BundleHandle));
     if (*bundleHandle == NULL) {
         SEC_LOG_ERROR("Malloc failed");
         return SEC_RESULT_FAILURE;
     }
+
+    result = Sec_RetrieveBundleData(processorHandle, object_id, &location, &(*bundleHandle)->bundle_data);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_FREE(*bundleHandle);
+        return result;
+    }
+
     (*bundleHandle)->object_id = object_id;
-    memcpy(&((*bundleHandle)->bundle_data), &bundle_data, sizeof(Sec_BundleData));
     (*bundleHandle)->location = location;
     (*bundleHandle)->processorHandle = processorHandle;
 
@@ -200,7 +200,7 @@ Sec_Result SecBundle_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_OBJEC
  */
 Sec_Result SecBundle_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID object_id, Sec_StorageLoc location,
         SEC_BYTE* data, SEC_SIZE data_len) {
-    Sec_BundleData bundle_data;
+    Sec_BundleData* bundle_data;
 
     CHECK_PROCHANDLE(processorHandle)
 
@@ -209,20 +209,28 @@ Sec_Result SecBundle_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTI
         return SEC_RESULT_FAILURE;
     }
 
+    if (data == NULL) {
+        SEC_LOG_ERROR("NULL data");
+        return SEC_RESULT_FAILURE;
+    }
+
     if (data_len > SEC_BUNDLE_MAX_LEN) {
         SEC_LOG_ERROR("Input bundle is too large");
         return SEC_RESULT_FAILURE;
     }
 
-    memcpy(bundle_data.bundle, data, data_len);
-    bundle_data.bundle_len = data_len;
-
-    if (Sec_StoreBundleData(processorHandle, object_id, location, &bundle_data) != SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("Sec_StoreBundleData failed");
+    bundle_data = calloc(1, sizeof(Sec_BundleData));
+    if (bundle_data == NULL) {
+        SEC_LOG_ERROR("calloc failed");
         return SEC_RESULT_FAILURE;
     }
 
-    return SEC_RESULT_SUCCESS;
+    memcpy(bundle_data->bundle, data, data_len);
+    bundle_data->bundle_len = data_len;
+
+    Sec_Result result = Sec_StoreBundleData(processorHandle, object_id, location, bundle_data);
+    SEC_FREE(bundle_data);
+    return result;
 }
 
 /**
