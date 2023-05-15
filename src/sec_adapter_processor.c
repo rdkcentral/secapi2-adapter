@@ -19,6 +19,16 @@
 #include "sec_adapter_processor.h" // NOLINT
 #include "sa.h"
 #include "sec_security_svp.h"
+#include <sched.h>
+
+#define THREAD_POLICY "SECAPI2ADAPTER_THREAD_POLICY"
+#define THREAD_PRIORITY "SECAPI2ADAPTER_THREAD_PRIORITY"
+#define THREAD_POLICY_SCHED_FIFO "SCHED_FIFO"
+#define THREAD_POLICY_SCHED_RR "SCHED_RR"
+#define THREAD_POLICY_SCHED_OTHER "SCHED_OTHER"
+#define THREAD_POLICY_SCHED_NORMAL "SCHED_NORMAL"
+#define THREAD_POLICY_SCHED_BATCH "SCHED_BATCH"
+#define THREAD_POLICY_SCHED_IDLE "SCHED_IDLE"
 
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static Sec_ProcessorHandle* processorHandleList = NULL;
@@ -163,6 +173,75 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return SEC_RESULT_FAILURE;
     }
 
+    // Add the processorHandle to the handle list.
+    pthread_mutex_lock(&mutex);
+    newProcessorHandle->nextHandle = processorHandleList;
+    processorHandleList = newProcessorHandle;
+    pthread_mutex_unlock(&mutex);
+
+    // Set the priority of the processorHandle thread.
+    struct sched_param param;
+    int policy;
+    if (pthread_getschedparam(newProcessorHandle->thread, &policy, &param) != 0) {
+        SEC_LOG_ERROR("pthread_getschedparam failed");
+        SecProcessor_Release(newProcessorHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    const char* thread_policy = getenv(THREAD_POLICY);
+    if (thread_policy != NULL) {
+        if (strcmp(THREAD_POLICY_SCHED_FIFO, thread_policy) == 0)
+            policy = SCHED_FIFO;
+        else if (strcmp(THREAD_POLICY_SCHED_RR, thread_policy) == 0)
+            policy = SCHED_RR;
+        else if (strcmp(THREAD_POLICY_SCHED_OTHER, thread_policy) == 0 ||
+                 strcmp(THREAD_POLICY_SCHED_NORMAL, thread_policy) == 0)
+            policy = SCHED_OTHER;
+        else if (strcmp(THREAD_POLICY_SCHED_BATCH, thread_policy) == 0)
+            policy = SCHED_BATCH;
+        else if (strcmp(THREAD_POLICY_SCHED_IDLE, thread_policy) == 0)
+            policy = SCHED_IDLE;
+        else
+            SEC_LOG_ERROR("Ignoring invalid thread policy");
+    }
+
+    if (policy == SCHED_FIFO || policy == SCHED_RR) {
+        const char* thread_priority = getenv(THREAD_PRIORITY);
+        if (thread_priority == NULL) {
+            SEC_LOG_ERROR("Thread priority not set");
+            SecProcessor_Release(newProcessorHandle);
+            return SEC_RESULT_FAILURE;
+        }
+
+        long priority = strtol(thread_priority, NULL, 0);
+        if (priority == 0) {
+            SEC_LOG_ERROR("Invalid thread priority");
+            SecProcessor_Release(newProcessorHandle);
+            return SEC_RESULT_FAILURE;
+        }
+
+        param.sched_priority = (int) priority;
+    } else {
+        param.sched_priority = 0;
+    }
+
+    int pthread_result = pthread_setschedparam(newProcessorHandle->thread, policy, &param);
+    if (pthread_result != 0) {
+        SEC_LOG_ERROR("pthread_setschedparam failed");
+        SecProcessor_Release(newProcessorHandle);
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Set the name of the processorHandle.
+    char thread_name[16];
+    if (sprintf(thread_name, "secapi2%x", (unsigned int) newProcessorHandle->thread) > 0) {
+        if (pthread_setname_np(newProcessorHandle->thread, thread_name) != 0) {
+            SEC_LOG_ERROR("Error pthread_setschedparam");
+            SecProcessor_Release(newProcessorHandle);
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
     /* generate sec store proc ins */
     result = SecStore_GenerateLadderInputs(newProcessorHandle, SEC_STORE_AES_LADDER_INPUT, NULL,
             (SEC_BYTE*) &derived_inputs, sizeof(derived_inputs));
@@ -238,10 +317,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return result;
     }
 
-    pthread_mutex_lock(&mutex);
-    newProcessorHandle->nextHandle = processorHandleList;
-    processorHandleList = newProcessorHandle;
-    pthread_mutex_unlock(&mutex);
     *processorHandle = newProcessorHandle;
     return SEC_RESULT_SUCCESS;
 }
