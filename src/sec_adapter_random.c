@@ -38,7 +38,7 @@ Sec_Result SecRandom_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Rando
     CHECK_PROCHANDLE(processorHandle)
 
     if (randomHandle == NULL) {
-        SEC_LOG_ERROR("signatureHandle is NULL");
+        SEC_LOG_ERROR("randomHandle is NULL");
         return SEC_RESULT_FAILURE;
     }
 
