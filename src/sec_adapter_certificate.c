@@ -265,25 +265,14 @@ static Sec_Result Sec_StoreCertificateData(Sec_ProcessorHandle* processorHandle,
 Sec_Result SecCertificate_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID object_id,
         Sec_CertificateHandle** certHandle) {
     Sec_Result result;
-    Sec_CertificateData cert_data;
     Sec_StorageLoc location;
 
+    *certHandle = NULL;
     CHECK_PROCHANDLE(processorHandle)
 
     if (object_id == SEC_OBJECTID_INVALID) {
         SEC_LOG_ERROR("Invalid object_id");
         return SEC_RESULT_INVALID_PARAMETERS;
-    }
-
-    result = Sec_RetrieveCertificateData(processorHandle, object_id, &location, &cert_data);
-    if (result != SEC_RESULT_SUCCESS) {
-        return result;
-    }
-
-    result = Sec_ValidateCertificateData(processorHandle, &cert_data);
-    if (result != SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("_Sec_ValidateCertificateData failed");
-        return SEC_RESULT_VERIFICATION_FAILED;
     }
 
     *certHandle = calloc(1, sizeof(Sec_CertificateHandle));
@@ -292,8 +281,20 @@ Sec_Result SecCertificate_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_
         return SEC_RESULT_FAILURE;
     }
 
+    result = Sec_RetrieveCertificateData(processorHandle, object_id, &location, &(*certHandle)->cert_data);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_FREE(*certHandle);
+        return result;
+    }
+
+    result = Sec_ValidateCertificateData(processorHandle, &(*certHandle)->cert_data);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("_Sec_ValidateCertificateData failed");
+        SEC_FREE(*certHandle);
+        return SEC_RESULT_VERIFICATION_FAILED;
+    }
+
     (*certHandle)->object_id = object_id;
-    memcpy(&((*certHandle)->cert_data), &cert_data, sizeof(Sec_CertificateData));
     (*certHandle)->location = location;
     (*certHandle)->processorHandle = processorHandle;
 
@@ -314,7 +315,7 @@ Sec_Result SecCertificate_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_
  */
 Sec_Result SecCertificate_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID object_id,
         Sec_StorageLoc location, Sec_CertificateContainer data_type, SEC_BYTE* data, SEC_SIZE data_len) {
-    Sec_CertificateData cert_data;
+    Sec_CertificateData* cert_data;
     Sec_Result result;
 
     CHECK_PROCHANDLE(processorHandle)
@@ -324,11 +325,31 @@ Sec_Result SecCertificate_Provision(Sec_ProcessorHandle* processorHandle, SEC_OB
         return SEC_RESULT_FAILURE;
     }
 
-    result = Sec_ProcessCertificateContainer(processorHandle, &cert_data, data_type, data, data_len);
-    if (result != SEC_RESULT_SUCCESS)
-        return result;
+    if (data == NULL) {
+        SEC_LOG_ERROR("NULL data");
+        return SEC_RESULT_FAILURE;
+    }
 
-    return Sec_StoreCertificateData(processorHandle, object_id, location, &cert_data);
+    if (data_len > SEC_CERT_MAX_DATA_LEN) {
+        SEC_LOG_ERROR("Input certificate is too large");
+        return SEC_RESULT_FAILURE;
+    }
+
+    cert_data = calloc(1, sizeof(Sec_CertificateData));
+    if (cert_data == NULL) {
+        SEC_LOG_ERROR("calloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    result = Sec_ProcessCertificateContainer(processorHandle, cert_data, data_type, data, data_len);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_FREE(cert_data);
+        return result;
+    }
+
+    result = Sec_StoreCertificateData(processorHandle, object_id, location, cert_data);
+    SEC_FREE(cert_data);
+    return result;
 }
 
 /**

@@ -163,7 +163,7 @@ target_link_libraries(sec_api_2_adapter_test
 add_custom_command(
         TARGET sec_api_2_adapter_test POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_SOURCE_DIR}/root_keystore.p12
+        ${CMAKE_SOURCE_DIR}/test/root_keystore.p12
         ${CMAKE_CURRENT_BINARY_DIR}/root_keystore.p12)
 
 add_test(sec_api_2_adapter_test sec_api_2_adapter_test)
