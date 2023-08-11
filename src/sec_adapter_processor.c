@@ -20,6 +20,9 @@
 #include "sa.h"
 #include "sec_security_svp.h"
 
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static Sec_ProcessorHandle* processorHandleList = NULL;
+
 struct Sec_ProcessorInitParams_struct {
 };
 
@@ -72,6 +75,7 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return SEC_RESULT_FAILURE;
     }
 
+    *processorHandle = NULL;
     Sec_InitOpenSSL();
 
     char* tempAppDir = (char*) calloc(1, SEC_MAX_FILE_PATH_LEN);
@@ -103,8 +107,8 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     }
 
     /* create handle */
-    *processorHandle = calloc(1, sizeof(Sec_ProcessorHandle));
-    if (*processorHandle == NULL) {
+    Sec_ProcessorHandle* newProcessorHandle = calloc(1, sizeof(Sec_ProcessorHandle));
+    if (newProcessorHandle == NULL) {
         SEC_LOG_ERROR("Calloc failed");
         SEC_FREE(tempAppDir);
         SEC_FREE(tempGlobalDir);
@@ -112,128 +116,133 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
     }
 
     /* setup key and cert directories */
-    (*processorHandle)->app_dir = tempAppDir;
-    result = SecUtils_MkDir((*processorHandle)->app_dir);
+    newProcessorHandle->app_dir = tempAppDir;
+    result = SecUtils_MkDir(newProcessorHandle->app_dir);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating app_dir");
-        SEC_FREE((*processorHandle)->app_dir);
+        SEC_FREE(newProcessorHandle->app_dir);
         SEC_FREE(tempGlobalDir);
-        SEC_FREE(*processorHandle);
+        SEC_FREE(newProcessorHandle);
         return result;
     }
 
-    (*processorHandle)->global_dir = tempGlobalDir;
-    result = SecUtils_MkDir((*processorHandle)->global_dir);
+    newProcessorHandle->global_dir = tempGlobalDir;
+    result = SecUtils_MkDir(newProcessorHandle->global_dir);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating app_dir");
-        SEC_FREE((*processorHandle)->app_dir);
-        SEC_FREE((*processorHandle)->global_dir);
-        SEC_FREE(*processorHandle);
+        SEC_FREE(newProcessorHandle->app_dir);
+        SEC_FREE(newProcessorHandle->global_dir);
+        SEC_FREE(newProcessorHandle);
         return result;
     }
 
-    if (pthread_mutex_init(&(*processorHandle)->mutex, NULL) != 0) {
+    if (pthread_mutex_init(&newProcessorHandle->mutex, NULL) != 0) {
         SEC_LOG_ERROR("Error initializing mutex");
-        SEC_FREE((*processorHandle)->app_dir);
-        SEC_FREE((*processorHandle)->global_dir);
-        SEC_FREE(*processorHandle);
+        SEC_FREE(newProcessorHandle->app_dir);
+        SEC_FREE(newProcessorHandle->global_dir);
+        SEC_FREE(newProcessorHandle);
         return SEC_RESULT_FAILURE;
     }
 
-    if (pthread_cond_init(&(*processorHandle)->cond, NULL) != 0) {
+    if (pthread_cond_init(&newProcessorHandle->cond, NULL) != 0) {
         SEC_LOG_ERROR("Error creating app_dir");
-        pthread_mutex_destroy(&(*processorHandle)->mutex);
-        SEC_FREE((*processorHandle)->app_dir);
-        SEC_FREE((*processorHandle)->global_dir);
-        SEC_FREE(*processorHandle);
+        pthread_mutex_destroy(&newProcessorHandle->mutex);
+        SEC_FREE(newProcessorHandle->app_dir);
+        SEC_FREE(newProcessorHandle->global_dir);
+        SEC_FREE(newProcessorHandle);
         return SEC_RESULT_FAILURE;
     }
 
-    if (pthread_create(&(*processorHandle)->thread, NULL, sa_invoke_handler, *processorHandle) != 0) {
+    if (pthread_create(&newProcessorHandle->thread, NULL, sa_invoke_handler, newProcessorHandle) != 0) {
         SEC_LOG_ERROR("Error creating app_dir");
-        pthread_mutex_destroy(&(*processorHandle)->mutex);
-        pthread_cond_destroy(&(*processorHandle)->cond);
-        SEC_FREE((*processorHandle)->app_dir);
-        SEC_FREE((*processorHandle)->global_dir);
-        SEC_FREE(*processorHandle);
+        pthread_mutex_destroy(&newProcessorHandle->mutex);
+        pthread_cond_destroy(&newProcessorHandle->cond);
+        SEC_FREE(newProcessorHandle->app_dir);
+        SEC_FREE(newProcessorHandle->global_dir);
+        SEC_FREE(newProcessorHandle);
         return SEC_RESULT_FAILURE;
     }
 
     /* generate sec store proc ins */
-    result = SecStore_GenerateLadderInputs(*processorHandle, SEC_STORE_AES_LADDER_INPUT, NULL,
+    result = SecStore_GenerateLadderInputs(newProcessorHandle, SEC_STORE_AES_LADDER_INPUT, NULL,
             (SEC_BYTE*) &derived_inputs, sizeof(derived_inputs));
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error Generating LadderInputs");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
-    result = SecUtils_FillKeyStoreUserHeader(*processorHandle, &keystore_header, SEC_KEYCONTAINER_SOC_INTERNAL_0);
+    result = SecUtils_FillKeyStoreUserHeader(newProcessorHandle, &keystore_header, SEC_KEYCONTAINER_SOC_INTERNAL_0);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error Filling KeyStoreUserHeader");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
-    result = SecStore_StoreData(*processorHandle, SEC_FALSE, SEC_FALSE, (SEC_BYTE*) SEC_UTILS_KEYSTORE_MAGIC,
+    result = SecStore_StoreData(newProcessorHandle, SEC_FALSE, SEC_FALSE, (SEC_BYTE*) SEC_UTILS_KEYSTORE_MAGIC,
             &keystore_header, sizeof(keystore_header), &derived_inputs, sizeof(derived_inputs), store, sizeof(store));
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error storing derived_inputs");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
-    result = SecKey_Provision(*processorHandle, SEC_OBJECTID_STORE_AES_KEY, SEC_STORAGELOC_RAM_SOFT_WRAPPED,
+    result = SecKey_Provision(newProcessorHandle, SEC_OBJECTID_STORE_AES_KEY, SEC_STORAGELOC_RAM_SOFT_WRAPPED,
             SEC_KEYCONTAINER_STORE, store, SecStore_GetStoreLen(store));
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating SEC_OBJECTID_STORE_AES_KEY");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
-    result = SecStore_GenerateLadderInputs(*processorHandle, SEC_STORE_MAC_LADDER_INPUT, NULL,
+    result = SecStore_GenerateLadderInputs(newProcessorHandle, SEC_STORE_MAC_LADDER_INPUT, NULL,
             (SEC_BYTE*) &derived_inputs, sizeof(derived_inputs));
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating SEC_STORE_MAC_LADDER_INPUT");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
-    result = SecUtils_FillKeyStoreUserHeader(*processorHandle, &keystore_header, SEC_KEYCONTAINER_SOC_INTERNAL_0);
+    result = SecUtils_FillKeyStoreUserHeader(newProcessorHandle, &keystore_header, SEC_KEYCONTAINER_SOC_INTERNAL_0);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating keystore_header");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
-    result = SecStore_StoreData(*processorHandle, SEC_FALSE, SEC_FALSE, (SEC_BYTE*) SEC_UTILS_KEYSTORE_MAGIC,
+    result = SecStore_StoreData(newProcessorHandle, SEC_FALSE, SEC_FALSE, (SEC_BYTE*) SEC_UTILS_KEYSTORE_MAGIC,
             &keystore_header, sizeof(keystore_header), &derived_inputs, sizeof(derived_inputs), store, sizeof(store));
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating sec_store");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
-    result = SecKey_Provision(*processorHandle, SEC_OBJECTID_STORE_MACKEYGEN_KEY, SEC_STORAGELOC_RAM_SOFT_WRAPPED,
+    result = SecKey_Provision(newProcessorHandle, SEC_OBJECTID_STORE_MACKEYGEN_KEY, SEC_STORAGELOC_RAM_SOFT_WRAPPED,
             SEC_KEYCONTAINER_STORE, store, SecStore_GetStoreLen(store));
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating SEC_OBJECTID_STORE_MACKEYGEN_KEY");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
     // generate certificate mac key
     const char* otherInfo = "certMacKeyhmacSha256concatKdfSha1";
     const char* nonce = "abcdefghijklmnopqr\0";
-    result = SecKey_Derive_ConcatKDF(*processorHandle, SEC_OBJECTID_CERTSTORE_KEY, SEC_KEYTYPE_HMAC_256,
+    result = SecKey_Derive_ConcatKDF(newProcessorHandle, SEC_OBJECTID_CERTSTORE_KEY, SEC_KEYTYPE_HMAC_256,
             SEC_STORAGELOC_RAM, SEC_DIGESTALGORITHM_SHA256, (SEC_BYTE*) nonce, (SEC_BYTE*) otherInfo,
             strlen(otherInfo));
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Error creating certificate mac key");
-        SecProcessor_Release((*processorHandle));
+        SecProcessor_Release(newProcessorHandle);
         return result;
     }
 
+    pthread_mutex_lock(&mutex);
+    newProcessorHandle->nextHandle = processorHandleList;
+    processorHandleList = newProcessorHandle;
+    pthread_mutex_unlock(&mutex);
+    *processorHandle = newProcessorHandle;
     return SEC_RESULT_SUCCESS;
 }
 
@@ -347,6 +356,26 @@ Sec_Result SecProcessor_GetDeviceId(Sec_ProcessorHandle* processorHandle, SEC_BY
 Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
     if (processorHandle == NULL)
         return SEC_RESULT_INVALID_HANDLE;
+
+    Sec_ProcessorHandle* tempHandle = processorHandleList;
+    Sec_ProcessorHandle* parentHandle = NULL;
+    while (tempHandle != NULL && tempHandle != processorHandle) {
+        parentHandle = tempHandle;
+        tempHandle = tempHandle->nextHandle;
+    }
+
+    if (tempHandle != processorHandle) {
+        SEC_LOG_ERROR("Attempting to free a handle that has already been freed");
+        return SEC_RESULT_INVALID_HANDLE;
+    }
+
+    pthread_mutex_lock(&mutex);
+    if (parentHandle == NULL)
+        processorHandleList = tempHandle->nextHandle;
+    else
+        parentHandle->nextHandle = tempHandle->nextHandle;
+
+    pthread_mutex_unlock(&mutex);
 
     while (processorHandle->opaque_buffer_handle != NULL)
         release_svp_buffer(processorHandle, processorHandle->opaque_buffer_handle->opaqueBufferHandle);

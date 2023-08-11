@@ -37,6 +37,11 @@ Sec_Result SecRandom_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Rando
         Sec_RandomHandle** randomHandle) {
     CHECK_PROCHANDLE(processorHandle)
 
+    if (randomHandle == NULL) {
+        SEC_LOG_ERROR("signatureHandle is NULL");
+        return SEC_RESULT_FAILURE;
+    }
+
     *randomHandle = malloc(sizeof(Sec_RandomHandle));
     if (*randomHandle == NULL)
         return SEC_RESULT_FAILURE;

@@ -105,6 +105,7 @@ struct Sec_ProcessorHandle_struct {
     sa_command* queue[MAX_QUEUE_SIZE];
     size_t queue_front;
     size_t queue_size;
+    struct Sec_ProcessorHandle_struct* nextHandle;
 };
 
 static const int SECAPI3_KEY_DEPTH = 4;

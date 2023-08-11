@@ -44,27 +44,33 @@ Sec_Result SecDigest_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Diges
         Sec_DigestHandle** digestHandle) {
     CHECK_PROCHANDLE(processorHandle)
 
-    *digestHandle = calloc(1, sizeof(Sec_DigestHandle));
-    if (*digestHandle == NULL) {
+    if (digestHandle == NULL) {
+        SEC_LOG_ERROR("cipherHandle is NULL");
+        return SEC_RESULT_FAILURE;
+    }
+
+    *digestHandle = NULL;
+    Sec_DigestHandle* newDigestHandle = calloc(1, sizeof(Sec_DigestHandle));
+    if (newDigestHandle == NULL) {
         SEC_LOG_ERROR("Malloc failed");
         return SEC_RESULT_FAILURE;
     }
 
-    (*digestHandle)->algorithm = algorithm;
-    (*digestHandle)->processorHandle = processorHandle;
+    newDigestHandle->algorithm = algorithm;
+    newDigestHandle->processorHandle = processorHandle;
 
     switch (algorithm) {
         case SEC_DIGESTALGORITHM_SHA1:
-            if (SHA1_Init(&((*digestHandle)->sha1_ctx)) != 1) {
-                SEC_FREE(*digestHandle);
+            if (SHA1_Init(&(newDigestHandle->sha1_ctx)) != 1) {
+                SEC_FREE(newDigestHandle);
                 return SEC_RESULT_FAILURE;
             }
 
             break;
 
         case SEC_DIGESTALGORITHM_SHA256:
-            if (SHA256_Init(&((*digestHandle)->sha256_ctx)) != 1) {
-                SEC_FREE(*digestHandle);
+            if (SHA256_Init(&(newDigestHandle->sha256_ctx)) != 1) {
+                SEC_FREE(newDigestHandle);
                 return SEC_RESULT_FAILURE;
             }
 
@@ -72,10 +78,11 @@ Sec_Result SecDigest_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Diges
 
         default:
             SEC_LOG_ERROR("Unimplemented digest algorithm");
-            SEC_FREE(*digestHandle);
+            SEC_FREE(newDigestHandle);
             return SEC_RESULT_UNIMPLEMENTED_FEATURE;
     }
 
+    *digestHandle = newDigestHandle;
     return SEC_RESULT_SUCCESS;
 }
 

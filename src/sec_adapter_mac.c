@@ -71,8 +71,12 @@ Sec_Result SecMac_SingleInputId(Sec_ProcessorHandle* processorHandle, Sec_MacAlg
 Sec_Result SecMac_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_MacAlgorithm algorithm,
         Sec_KeyHandle* keyHandle, Sec_MacHandle** macHandle) {
     CHECK_PROCHANDLE(processorHandle)
-    *macHandle = NULL;
+    if (macHandle == NULL) {
+        SEC_LOG_ERROR("macHandle is NULL");
+        return SEC_RESULT_FAILURE;
+    }
 
+    *macHandle = NULL;
     Sec_KeyType key_type = SecKey_GetKeyType(keyHandle);
     Sec_Result result = SecMac_IsValidKey(key_type, algorithm);
     if (result != SEC_RESULT_SUCCESS) {
@@ -80,15 +84,15 @@ Sec_Result SecMac_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_MacAlgor
         return result;
     }
 
-    *macHandle = calloc(1, sizeof(Sec_MacHandle));
-    if (*macHandle == NULL) {
+    Sec_MacHandle* newMacHandle = calloc(1, sizeof(Sec_MacHandle));
+    if (newMacHandle == NULL) {
         SEC_LOG_ERROR("Malloc failed");
         return SEC_RESULT_FAILURE;
     }
 
-    (*macHandle)->processorHandle = processorHandle;
-    (*macHandle)->algorithm = algorithm;
-    (*macHandle)->keyHandle = keyHandle;
+    newMacHandle->processorHandle = processorHandle;
+    newMacHandle->algorithm = algorithm;
+    newMacHandle->keyHandle = keyHandle;
 
     sa_mac_algorithm mac_algorithm;
     sa_mac_parameters_hmac hmac_parameters;
@@ -112,17 +116,18 @@ Sec_Result SecMac_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_MacAlgor
             break;
 
         default:
-            free(*macHandle);
+            free(newMacHandle);
             return SEC_RESULT_INVALID_PARAMETERS;
     }
 
     const Sec_Key* key = get_key(keyHandle);
-    sa_status status = sa_invoke(processorHandle, SA_CRYPTO_MAC_INIT, &(*macHandle)->mac_context, mac_algorithm,
+    sa_status status = sa_invoke(processorHandle, SA_CRYPTO_MAC_INIT, &newMacHandle->mac_context, mac_algorithm,
             key->handle, parameters);
     if (status != SA_STATUS_OK)
-        free(*macHandle);
+        free(newMacHandle);
 
     CHECK_STATUS(status)
+    *macHandle = newMacHandle;
     return SEC_RESULT_SUCCESS;
 }
 

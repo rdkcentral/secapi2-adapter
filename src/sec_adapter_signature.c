@@ -47,6 +47,13 @@ Sec_Result SecSignature_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Si
         Sec_SignatureMode mode, Sec_KeyHandle* keyHandle, Sec_SignatureHandle** signatureHandle) {
     CHECK_PROCHANDLE(processorHandle)
 
+    if (signatureHandle == NULL) {
+        SEC_LOG_ERROR("signatureHandle is NULL");
+        return SEC_RESULT_FAILURE;
+    }
+
+    *signatureHandle = NULL;
+
     Sec_KeyType key_type = SecKey_GetKeyType(keyHandle);
     if (SecSignature_IsValidKey(key_type, algorithm, mode) != SEC_RESULT_SUCCESS) {
         return SEC_RESULT_INVALID_PARAMETERS;
