@@ -45,14 +45,14 @@ Sec_Result SecDigest_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_Diges
     CHECK_PROCHANDLE(processorHandle)
 
     if (digestHandle == NULL) {
-        SEC_LOG_ERROR("cipherHandle is NULL");
+        SEC_LOG_ERROR("digestHandle is NULL");
         return SEC_RESULT_FAILURE;
     }
 
     *digestHandle = NULL;
     Sec_DigestHandle* newDigestHandle = calloc(1, sizeof(Sec_DigestHandle));
     if (newDigestHandle == NULL) {
-        SEC_LOG_ERROR("Malloc failed");
+        SEC_LOG_ERROR("calloc failed");
         return SEC_RESULT_FAILURE;
     }
 

@@ -169,6 +169,11 @@ Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** o
         CHECK_STATUS(status)
     }
 
+    if (svp_memory == NULL) {
+        SEC_LOG_ERROR("svp_memory is NULL");
+        return SEC_RESULT_FAILURE;
+    }
+
     Sec_Result result = SecOpaqueBuffer_Create(opaqueBufferHandle, svp_memory, bufLength);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecOpaqueBuffer_Create failed");

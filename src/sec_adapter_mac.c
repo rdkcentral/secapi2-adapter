@@ -86,7 +86,7 @@ Sec_Result SecMac_GetInstance(Sec_ProcessorHandle* processorHandle, Sec_MacAlgor
 
     Sec_MacHandle* newMacHandle = calloc(1, sizeof(Sec_MacHandle));
     if (newMacHandle == NULL) {
-        SEC_LOG_ERROR("Malloc failed");
+        SEC_LOG_ERROR("calloc failed");
         return SEC_RESULT_FAILURE;
     }
 
