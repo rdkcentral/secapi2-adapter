@@ -403,7 +403,7 @@ static Sec_Result hkdf(SEC_BYTE* key, SEC_SIZE key_len, SEC_BYTE* out, const SEC
         return SEC_RESULT_FAILURE;
     }
 
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, key, key_len) <= 0) {
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, key, static_cast<int>(key_len)) <= 0) {
         EVP_PKEY_CTX_free(pctx);
         return SEC_RESULT_FAILURE;
     }
