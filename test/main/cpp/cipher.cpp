@@ -1239,6 +1239,90 @@ Sec_Result testProcessOpaqueWithMap(SEC_OBJECTID id, TestKey key, TestKc kc, Sec
     return result;
 }
 
+Sec_Result testProcessOpaqueWithMapAndPattern(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
+        Sec_CipherAlgorithm alg, SEC_SIZE subsampleCount, SEC_SIZE bytesOfClearData, SEC_SIZE numEncryptedBlocks,
+        SEC_SIZE numClearBlocks) {
+    TestCtx ctx;
+
+    if (ctx.init() != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_KeyHandle* keyHandle = nullptr;
+    if ((keyHandle = ctx.provisionKey(id, loc, key, kc)) == nullptr) {
+        SEC_LOG_ERROR("ctx.provisionKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    //gen iv
+    std::vector<SEC_BYTE> iv = TestCtx::random(SEC_AES_BLOCK_SIZE);
+    TestCtx::printHex("iv", iv);
+
+    //gen clear input
+    std::vector<SEC_BYTE> clear = TestCtx::random(SUBSAMPLE_SIZE * subsampleCount);
+    TestCtx::printHex("clear", clear);
+
+    //encrypt
+    std::vector<SEC_BYTE> encrypted;
+    std::vector<SEC_BYTE> ivCopy = iv;
+
+    //use openssl to encrypt
+    std::vector<SEC_BYTE> temp;
+    for (size_t i = 0; i < subsampleCount; i++) {
+        temp.insert(temp.end(),
+                clear.begin() + static_cast<int64_t>(i * SUBSAMPLE_SIZE + bytesOfClearData),
+                clear.begin() + static_cast<int64_t>((i + 1) * SUBSAMPLE_SIZE));
+    }
+
+    std::vector<SEC_BYTE> encryptedTemp = cipherOpenSSL(key, alg, SEC_CIPHERMODE_ENCRYPT, &ivCopy[0], temp);
+    SEC_SIZE bytesOfProtectedData = SUBSAMPLE_SIZE - bytesOfClearData;
+    for (size_t i = 0; i < subsampleCount; i++) {
+        encrypted.insert(encrypted.end(),
+                clear.begin() + static_cast<int64_t>(i * SUBSAMPLE_SIZE),
+                clear.begin() + static_cast<int64_t>(i * SUBSAMPLE_SIZE + bytesOfClearData));
+        encrypted.insert(encrypted.end(),
+                encryptedTemp.begin() + static_cast<int64_t>(i * bytesOfProtectedData),
+                encryptedTemp.begin() + static_cast<int64_t>((i + 1) * bytesOfProtectedData));
+    }
+
+    TestCtx::printHex("encrypted", encrypted);
+    TestCtx::printHex("iv", iv);
+
+    Sec_CipherHandle* cipherHandle = ctx.acquireCipher(alg, SEC_CIPHERMODE_DECRYPT, keyHandle, &iv[0]);
+    if (cipherHandle == nullptr) {
+        SEC_LOG_ERROR("TestCtx::acquireCipher failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    auto* map = new SEC_MAP[subsampleCount];
+    if (map == nullptr) {
+        SEC_LOG_ERROR("malloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    for (SEC_SIZE i = 0; i < subsampleCount; i++) {
+        map[i].clear = bytesOfClearData;
+        map[i].encrypted = SUBSAMPLE_SIZE - bytesOfClearData;
+    }
+
+    //decrypt
+    std::vector<SEC_BYTE> decrypted;
+    Sec_OpaqueBufferHandle* opaqueBufferHandle;
+    SEC_SIZE bytesWritten = 0;
+    Sec_Result result = SecCipher_ProcessOpaqueWithMapAndPattern(cipherHandle, iv.data(), encrypted.data(), encrypted.size(),
+            SEC_TRUE, map, subsampleCount, numEncryptedBlocks, numClearBlocks, &opaqueBufferHandle, &bytesWritten);
+    if (result != SEC_RESULT_SUCCESS) {
+        delete[] map;
+        SEC_LOG_ERROR("SecCipher_ProcessOpaqueWithMap failed");
+        return result;
+    }
+
+    delete[] map;
+    SecOpaqueBuffer_Free(opaqueBufferHandle);
+    return result;
+}
+
 Sec_Result testProcessOpaqueWithMapVariable(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
         Sec_CipherAlgorithm alg) {
     TestCtx ctx;
