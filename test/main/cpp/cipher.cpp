@@ -1245,7 +1245,7 @@ Sec_Result testProcessOpaqueWithMapAndPattern(SEC_OBJECTID id, TestKey key, Test
     TestCtx ctx;
 
     if (ctx.init() != SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("TestCtx.init failed");
+        SEC_LOG_ERROR("ctx.init failed");
         return SEC_RESULT_FAILURE;
     }
 
@@ -1314,7 +1314,7 @@ Sec_Result testProcessOpaqueWithMapAndPattern(SEC_OBJECTID id, TestKey key, Test
             SEC_TRUE, map, subsampleCount, numEncryptedBlocks, numClearBlocks, &opaqueBufferHandle, &bytesWritten);
     if (result != SEC_RESULT_SUCCESS) {
         delete[] map;
-        SEC_LOG_ERROR("SecCipher_ProcessOpaqueWithMap failed");
+        SEC_LOG_ERROR("SecCipher_ProcessOpaqueWithMapAndPattern failed");
         return result;
     }
 

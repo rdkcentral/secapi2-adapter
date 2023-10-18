@@ -1026,7 +1026,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMapAndPattern(Sec_CipherHandle* cipherHand
     }
 
     if (opaqueBufferHandle == NULL) {
-        SEC_LOG_ERROR("NULL outputHandle");
+        SEC_LOG_ERROR("NULL opaqueBufferHandle");
         return SEC_RESULT_FAILURE;
     }
 
