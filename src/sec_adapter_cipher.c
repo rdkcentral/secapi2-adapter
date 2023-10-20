@@ -941,6 +941,12 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
         return SEC_RESULT_FAILURE;
     }
 
+    if (cipherHandle->algorithm != SEC_CIPHERALGORITHM_AES_CBC_NO_PADDING &&
+            cipherHandle->algorithm != SEC_CIPHERALGORITHM_AES_CTR) {
+        SEC_LOG_ERROR("Not CBC or CTR mode");
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
     Sec_Result result = SecOpaqueBuffer_Malloc(inputSize, opaqueBufferHandle);
     if (result != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
@@ -976,6 +982,100 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
     sample.iv_length = SEC_AES_BLOCK_SIZE;
     sample.crypt_byte_block = 0;
     sample.skip_byte_block = 0;
+    sample.subsample_count = mapLength;
+    sample.subsample_lengths = subsample_lengths;
+    sample.context = cipherHandle->cipher.context;
+    sample.out = &out_buffer;
+    sample.in = &in_buffer;
+
+    sa_status status = sa_invoke(cipherHandle->processorHandle, SA_PROCESS_COMMON_ENCRYPTION, (size_t) 1, &sample);
+    free(subsample_lengths);
+    if (status != SA_STATUS_OK) {
+        SecOpaqueBuffer_Free(*opaqueBufferHandle);
+        *opaqueBufferHandle = NULL;
+        *bytesWritten = 0;
+        CHECK_STATUS(status)
+    }
+
+    *bytesWritten = out_buffer.context.svp.offset;
+    return SEC_RESULT_SUCCESS;
+}
+
+Sec_Result SecCipher_ProcessOpaqueWithMapAndPattern(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv, SEC_BYTE* input,
+        SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength, SEC_SIZE numEncryptedBlocks,
+        SEC_SIZE numClearBlocks, Sec_OpaqueBufferHandle** opaqueBufferHandle, SEC_SIZE* bytesWritten) {
+
+    if (cipherHandle == NULL) {
+        SEC_LOG_ERROR("NULL cipherHandle");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (iv == NULL) {
+        SEC_LOG_ERROR("NULL iv");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (input == NULL) {
+        SEC_LOG_ERROR("NULL input");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (map == NULL) {
+        SEC_LOG_ERROR("NULL map");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (opaqueBufferHandle == NULL) {
+        SEC_LOG_ERROR("NULL opaqueBufferHandle");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (bytesWritten == NULL) {
+        SEC_LOG_ERROR("NULL bytesWritten");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (cipherHandle->algorithm != SEC_CIPHERALGORITHM_AES_CBC_NO_PADDING &&
+            cipherHandle->algorithm != SEC_CIPHERALGORITHM_AES_CTR) {
+        SEC_LOG_ERROR("Not CBC or CTR mode");
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
+    Sec_Result result = SecOpaqueBuffer_Malloc(inputSize, opaqueBufferHandle);
+    if (result != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecOpaqueBuffer_Malloc failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    sa_subsample_length* subsample_lengths = malloc(mapLength * sizeof(sa_subsample_length));
+    for (size_t i = 0; i < mapLength; i++) {
+        subsample_lengths[i].bytes_of_clear_data = map[i].clear;
+        subsample_lengths[i].bytes_of_protected_data = map[i].encrypted;
+    }
+
+    sa_buffer out_buffer;
+    out_buffer.buffer_type = SA_BUFFER_TYPE_SVP;
+    out_buffer.context.svp.offset = 0;
+    out_buffer.context.svp.buffer = get_svp_buffer(cipherHandle->processorHandle, *opaqueBufferHandle);
+    if (out_buffer.context.svp.buffer == INVALID_HANDLE) {
+        free(subsample_lengths);
+        SecOpaqueBuffer_Free(*opaqueBufferHandle);
+        *opaqueBufferHandle = NULL;
+        *bytesWritten = 0;
+        return SEC_RESULT_FAILURE;
+    }
+
+    sa_buffer in_buffer;
+    in_buffer.buffer_type = SA_BUFFER_TYPE_CLEAR;
+    in_buffer.context.clear.buffer = input;
+    in_buffer.context.clear.length = inputSize;
+    in_buffer.context.clear.offset = 0;
+
+    sa_sample sample;
+    sample.iv = iv;
+    sample.iv_length = SEC_AES_BLOCK_SIZE;
+    sample.crypt_byte_block = numEncryptedBlocks;
+    sample.skip_byte_block = numClearBlocks;
     sample.subsample_count = mapLength;
     sample.subsample_lengths = subsample_lengths;
     sample.context = cipherHandle->cipher.context;

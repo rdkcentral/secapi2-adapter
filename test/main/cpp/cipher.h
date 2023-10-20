@@ -78,6 +78,10 @@ Sec_Result testCtrRollover(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageL
 Sec_Result testProcessOpaqueWithMap(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
         Sec_CipherAlgorithm alg, SEC_SIZE subsampleCount, SEC_SIZE bytesOfClearData);
 
+Sec_Result testProcessOpaqueWithMapAndPattern(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
+        Sec_CipherAlgorithm alg, SEC_SIZE subsampleCount, SEC_SIZE bytesOfClearData, SEC_SIZE numEncryptedBlocks,
+        SEC_SIZE numClearBlocks);
+
 Sec_Result testProcessOpaqueWithMapVariable(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
         Sec_CipherAlgorithm alg);
 
