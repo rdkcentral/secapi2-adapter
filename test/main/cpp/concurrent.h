@@ -26,6 +26,4 @@ Sec_Result testConcurrentVendor128(SEC_SIZE numThreads);
 
 Sec_Result testConcurrentRsa(TestKey pub, TestKey priv, TestKc kc, SEC_SIZE numThreads);
 
-Sec_Result testConcurrentProcessorInvoke(SEC_SIZE numThreads);
-
 #endif // CONCURRENT_H

@@ -19,8 +19,6 @@
 #ifndef SEC_ADAPTER_PROCESSOR_H
 #define SEC_ADAPTER_PROCESSOR_H
 
-#include "sa_ta_types.h"
-#include "sa_types.h"
 #include "sec_adapter_key.h"
 #include "sec_security.h"
 #include "sec_security_store.h"
@@ -36,18 +34,10 @@
 #include <stdint.h>
 #endif
 
-#define MAX_QUEUE_SIZE 32
-
 #define MIN_SA_VERSION(x, y, z) ( \
-        (SA_SPECIFICATION_MAJOR > x) || \
-        (SA_SPECIFICATION_MAJOR == x && SA_SPECIFICATION_MINOR > y) || \
-        (SA_SPECIFICATION_MAJOR == x && SA_SPECIFICATION_MINOR == y && SA_SPECIFICATION_REVISION >= z))
-
-typedef struct {
-    SA_COMMAND_ID command_id;
-    va_list* arguments;
-    sa_status result;
-} sa_command;
+        (SA_SPECIFICATION_MAJOR > (x)) || \
+        (SA_SPECIFICATION_MAJOR == (x) && SA_SPECIFICATION_MINOR > (y)) || \
+        (SA_SPECIFICATION_MAJOR == (x) && SA_SPECIFICATION_MINOR == (y) && SA_SPECIFICATION_REVISION >= (z)))
 
 typedef struct {
     SEC_BYTE input1[SEC_AES_BLOCK_SIZE];
@@ -85,11 +75,6 @@ typedef struct Sec_RAMBundleData_struct {
     struct Sec_RAMBundleData_struct* next;
 } Sec_RAMBundleData;
 
-typedef struct opaque_buffer_handle_entry_struct {
-    Sec_OpaqueBufferHandle* opaqueBufferHandle;
-    struct opaque_buffer_handle_entry_struct* next;
-} opaque_buffer_handle_entry;
-
 struct Sec_ProcessorHandle_struct {
     Sec_RAMKeyData* ram_keys;
     Sec_RAMBundleData* ram_bundles;
@@ -97,15 +82,6 @@ struct Sec_ProcessorHandle_struct {
     char* global_dir;
     char* app_dir;
     int device_settings_init_flag;
-    opaque_buffer_handle_entry* opaque_buffer_handle;
-    pthread_t thread;
-    pthread_cond_t cond;
-    pthread_mutex_t mutex;
-    bool shutdown;
-    sa_command* queue[MAX_QUEUE_SIZE];
-    size_t queue_front;
-    size_t queue_size;
-    struct Sec_ProcessorHandle_struct* nextHandle;
 };
 
 static const int SECAPI3_KEY_DEPTH = 4;
@@ -144,7 +120,5 @@ static const int SECAPI3_KEY_DEPTH = 4;
         default: \
             return SEC_RESULT_FAILURE; \
     }
-
-sa_status sa_invoke(Sec_ProcessorHandle* processorHandle, SA_COMMAND_ID command_id, ...);
 
 #endif // SEC_ADAPTER_PROCESSOR_H

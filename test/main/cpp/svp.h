@@ -38,7 +38,4 @@ Sec_Result testProcessOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
 
 Sec_Result testProcessDataShiftOpaque(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc);
 
-Sec_Result testOpaqueMultiProcHandle(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc,
-        Sec_CipherAlgorithm cipher_algorithm, int size);
-
 #endif // SVP_H

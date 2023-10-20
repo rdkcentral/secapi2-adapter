@@ -37,8 +37,8 @@
 #define CHECK_MAC_RESULT(processorHandle, status, base_key, mac_context) \
     if ((status) != SA_STATUS_OK) { \
         if ((mac_context) != 0) \
-            sa_invoke(processorHandle, SA_CRYPTO_MAC_RELEASE, mac_context); \
-        sa_invoke(processorHandle, SA_KEY_RELEASE, base_key); \
+            sa_crypto_mac_release(mac_context); \
+        sa_key_release(base_key); \
         return SEC_RESULT_FAILURE; \
     }
 
@@ -91,9 +91,9 @@ static Sec_Result process_store_key_container(Sec_ProcessorHandle* processorHand
 static Sec_KeyType get_key_type(sa_header* key_header);
 
 static Sec_Result derive_root_key_ladder(Sec_ProcessorHandle* processorHandle, const SEC_BYTE* c1, const SEC_BYTE* c2,
-        const SEC_BYTE* c3, const SEC_BYTE* c4, SEC_SIZE key_size, const sa_key* key, Sec_KeyType key_type);
+        const SEC_BYTE* c3, const SEC_BYTE* c4, SEC_SIZE key_size, sa_key* key, Sec_KeyType key_type);
 
-static Sec_Result derive_base_key(Sec_ProcessorHandle* processorHandle, SEC_BYTE* nonce, const sa_key* key,
+static Sec_Result derive_base_key(Sec_ProcessorHandle* processorHandle, SEC_BYTE* nonce, sa_key* key,
         Sec_KeyType key_type);
 
 static Sec_Result derive_hkdf(Sec_ProcessorHandle* processorHandle, Sec_MacAlgorithm macAlgorithm,
@@ -248,7 +248,7 @@ Sec_Result SecKey_GetProperties(Sec_KeyHandle* keyHandle, Sec_KeyProperties* key
         case SEC_KEYTYPE_ECC_NISTP256:
         case SEC_KEYTYPE_RSA_3072: {
             sa_header key_header;
-            sa_status status = sa_invoke(keyHandle->processorHandle, SA_KEY_HEADER, &key_header, keyHandle->key.handle);
+            sa_status status = sa_key_header(&key_header, keyHandle->key.handle);
             CHECK_STATUS(status)
 
             rights = key_header.rights;
@@ -357,7 +357,7 @@ SEC_SIZE SecKey_GetKeyLen(Sec_KeyHandle* keyHandle) {
         case SEC_KEYTYPE_HMAC_256:
         case SEC_KEYTYPE_ECC_NISTP256:
         case SEC_KEYTYPE_RSA_3072:
-            status = sa_invoke(keyHandle->processorHandle, SA_KEY_HEADER, &key_header, keyHandle->key.handle);
+            status = sa_key_header(&key_header, keyHandle->key.handle);
             if (status != SA_STATUS_OK) {
                 return 0;
             }
@@ -443,7 +443,7 @@ Sec_Result SecKey_GetInstance(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID
         (*keyHandle)->key_type = SecKey_GetKeyTypeForClearKeyContainer(key_container);
     } else {
         sa_header key_header;
-        sa_status status = sa_invoke(processorHandle, SA_KEY_HEADER, &key_header, (*keyHandle)->key.handle);
+        sa_status status = sa_key_header(&key_header, (*keyHandle)->key.handle);
         if (status == SA_STATUS_OK) {
             (*keyHandle)->key_type = get_key_type(&key_header);
         }
@@ -477,7 +477,7 @@ Sec_Result SecKey_ExtractRSAPublicKey(Sec_KeyHandle* keyHandle, Sec_RSARawPublic
             }
 
             sa_status status;
-            status = sa_invoke(keyHandle->processorHandle, SA_KEY_GET_PUBLIC, out, &out_len, keyHandle->key.handle);
+            status = sa_key_get_public(out, &out_len, keyHandle->key.handle);
             if (status == SA_STATUS_OK)
                 Pubops_ExtractRSAPubFromPUBKEYDer(out, out_len, public_key);
 
@@ -530,8 +530,7 @@ Sec_Result SecKey_ExtractECCPublicKey(Sec_KeyHandle* keyHandle, Sec_ECCRawPublic
                 return SEC_RESULT_FAILURE;
             }
 
-            sa_status status = sa_invoke(keyHandle->processorHandle, SA_KEY_GET_PUBLIC, out, &out_len,
-                    keyHandle->key.handle);
+            sa_status status = sa_key_get_public(out, &out_len, keyHandle->key.handle);
             if (status == SA_STATUS_OK)
                 Pubops_ExtractECCPubFromPUBKEYDer(out, out_len, public_key);
 
@@ -576,8 +575,7 @@ Sec_Result SecKey_Generate(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID ob
     Sec_Key key;
     sa_rights rights;
     rights_set_allow_all(&rights, keyType);
-    sa_status status = sa_invoke(processorHandle, SA_KEY_GENERATE, &key.handle, &rights, key_type,
-            parameters);
+    sa_status status = sa_key_generate(&key.handle, &rights, key_type, parameters);
     SEC_FREE(parameters);
     CHECK_STATUS(status)
 
@@ -659,7 +657,7 @@ Sec_Result SecKey_Derive_HKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID
     Sec_Key key;
     result = derive_hkdf(processorHandle, macAlgorithm, type_derived, salt, saltSize, info, infoSize, base_key,
             &key.handle);
-    sa_invoke(processorHandle, SA_KEY_RELEASE, base_key);
+    sa_key_release(base_key);
     if (result != SEC_RESULT_SUCCESS) {
         return result;
     }
@@ -694,7 +692,7 @@ Sec_Result SecKey_Derive_ConcatKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJ
     Sec_Key key;
     result = derive_kdf_concat(processorHandle, digestAlgorithm, type_derived, otherInfo, otherInfoSize, base_key,
             &key.handle);
-    sa_invoke(processorHandle, SA_KEY_RELEASE, base_key);
+    sa_key_release(base_key);
     if (result != SEC_RESULT_SUCCESS) {
         return result;
     }
@@ -741,36 +739,35 @@ Sec_Result SecKey_Derive_PBEKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJECT
             parameters = &hmac_parameters;
         }
 
-        sa_status status = sa_invoke(processorHandle, SA_CRYPTO_MAC_INIT, &mac_context, mac_algorithm,
-                base_key, parameters);
+        sa_status status = sa_crypto_mac_init(&mac_context, mac_algorithm, base_key, parameters);
         CHECK_MAC_RESULT(processorHandle, status, base_key, 0)
 
-        status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, salt, (size_t) saltSize);
+        status = sa_crypto_mac_process(mac_context, salt, saltSize);
         CHECK_MAC_RESULT(processorHandle, status, base_key, mac_context)
 
-        status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, loop, sizeof(loop));
+        status = sa_crypto_mac_process(mac_context, loop, sizeof(loop));
         CHECK_MAC_RESULT(processorHandle, status, base_key, mac_context)
 
         SEC_BYTE mac1[SEC_MAC_MAX_LEN];
         size_t mac1_len;
-        status = sa_invoke(processorHandle, SA_CRYPTO_MAC_COMPUTE, mac1, &mac1_len, mac_context);
-        sa_invoke(processorHandle, SA_CRYPTO_MAC_RELEASE, mac_context);
+        status = sa_crypto_mac_compute(mac1, &mac1_len, mac_context);
+        sa_crypto_mac_release(mac_context);
         CHECK_MAC_RESULT(processorHandle, status, base_key, 0)
 
         SEC_BYTE out[SEC_MAC_MAX_LEN];
         memcpy(out, mac1, digest_length);
 
         for (size_t j = 1; j < numIterations; j++) {
-            status = sa_invoke(processorHandle, SA_CRYPTO_MAC_INIT, &mac_context, mac_algorithm, base_key, parameters);
+            status = sa_crypto_mac_init(&mac_context, mac_algorithm, base_key, parameters);
             CHECK_MAC_RESULT(processorHandle, status, base_key, 0)
 
-            status = sa_invoke(processorHandle, SA_CRYPTO_MAC_PROCESS, mac_context, mac1, (size_t) digest_length);
+            status = sa_crypto_mac_process(mac_context, mac1, digest_length);
             CHECK_MAC_RESULT(processorHandle, status, base_key, mac_context)
 
             SEC_BYTE mac2[SEC_MAC_MAX_LEN];
             size_t mac2_len;
-            status = sa_invoke(processorHandle, SA_CRYPTO_MAC_COMPUTE, mac2, &mac2_len, mac_context);
-            sa_invoke(processorHandle, SA_KEY_RELEASE, mac_context);
+            status = sa_crypto_mac_compute(mac2, &mac2_len, mac_context);
+            sa_crypto_mac_release(mac_context);
             CHECK_MAC_RESULT(processorHandle, status, base_key, 0)
 
             memcpy(mac1, mac2, digest_length);
@@ -783,7 +780,7 @@ Sec_Result SecKey_Derive_PBEKDF(Sec_ProcessorHandle* processorHandle, SEC_OBJECT
         memcpy(out_key + (i - 1) * digest_length, out, cp_len);
     }
 
-    sa_invoke(processorHandle, SA_KEY_RELEASE, base_key);
+    sa_key_release(base_key);
 
     return SecKey_Provision(processorHandle, object_id_derived, loc_derived, SecKey_GetClearContainer(type_derived),
             out_key, key_length);
@@ -981,14 +978,14 @@ Sec_Result SecKey_ECDHKeyAgreementWithKDF(Sec_KeyHandle* keyHandle, Sec_ECCRawPu
         return SEC_RESULT_FAILURE;
     }
 
-    sa_status status = sa_invoke(keyHandle->processorHandle, SA_KEY_EXCHANGE, &shared_secret, &rights,
-            SA_KEY_EXCHANGE_ALGORITHM_ECDH, keyHandle->key.handle, other_public, (size_t) other_public_length, NULL);
+    sa_status status = sa_key_exchange(&shared_secret, &rights, SA_KEY_EXCHANGE_ALGORITHM_ECDH,
+            keyHandle->key.handle, other_public, other_public_length, NULL);
     free(other_public);
     CHECK_STATUS(status)
 
     // Derive the key from the shared secret using a key derivation algorithm.
     if (digestAlgorithm != SEC_DIGESTALGORITHM_SHA1 && digestAlgorithm != SEC_DIGESTALGORITHM_SHA256) {
-        sa_invoke(keyHandle->processorHandle, SA_KEY_RELEASE, shared_secret);
+        sa_key_release(shared_secret);
         SEC_LOG_ERROR("Unsupported digest algorithm specified: %d", digestAlgorithm);
         return SEC_RESULT_INVALID_PARAMETERS;
     }
@@ -1035,13 +1032,13 @@ Sec_Result SecKey_ECDHKeyAgreementWithKDF(Sec_KeyHandle* keyHandle, Sec_ECCRawPu
             break;
 
         default:
-            sa_invoke(keyHandle->processorHandle, SA_KEY_RELEASE, shared_secret);
+            sa_key_release(shared_secret);
             return SEC_RESULT_INVALID_PARAMETERS;
     }
 
     Sec_Key key;
-    status = sa_invoke(keyHandle->processorHandle, SA_KEY_DERIVE, &key.handle, &rights, kdf_algorithm, parameters);
-    sa_invoke(keyHandle->processorHandle, SA_KEY_RELEASE, shared_secret);
+    status = sa_key_derive(&key.handle, &rights, kdf_algorithm, parameters);
+    sa_key_release(shared_secret);
     CHECK_STATUS(status)
 
     return prepare_and_store_key_data(keyHandle->processorHandle, loc_derived, id_derived, &key,
@@ -1239,7 +1236,7 @@ Sec_Result SecKey_Release(Sec_KeyHandle* keyHandle) {
             break;
 
         default:
-            sa_invoke(keyHandle->processorHandle, SA_KEY_RELEASE, keyHandle->key.handle);
+            sa_key_release(keyHandle->key.handle);
             break;
     }
 
@@ -2160,7 +2157,7 @@ Sec_Result prepare_and_store_key_data(Sec_ProcessorHandle* processorHandle, Sec_
             key_data->info.kc_type = SEC_KEYCONTAINER_EXPORTED;
             result = export_key(processorHandle, key, NULL, key_data->key_container, SEC_KEYCONTAINER_MAX_LEN,
                     &key_data->kc_len);
-            sa_invoke(processorHandle, SA_KEY_RELEASE, key->handle);
+            sa_key_release(key->handle);
             break;
 
         case SEC_KEYCONTAINER_EXPORTED:
@@ -2169,7 +2166,7 @@ Sec_Result prepare_and_store_key_data(Sec_ProcessorHandle* processorHandle, Sec_
                 key_data->info.kc_type = key_container;
                 memcpy(key_data->key_container, key_buffer, key_length);
                 key_data->kc_len = key_length;
-                sa_invoke(processorHandle, SA_KEY_RELEASE, key->handle);
+                sa_key_release(key->handle);
                 result = SEC_RESULT_SUCCESS;
             } else {
                 result = SEC_RESULT_INVALID_PARAMETERS;
@@ -2643,8 +2640,7 @@ static Sec_Result process_key_container(Sec_ProcessorHandle* processorHandle, SE
     }
 
     // Validate the key and import it.
-    status = sa_invoke(processorHandle, SA_KEY_IMPORT, &key->handle, key_format, key_buffer, (size_t) *key_length,
-            parameters);
+    status = sa_key_import(&key->handle, key_format, key_buffer, *key_length, parameters);
 
     if (cipherKeyHandle != NULL)
         SecKey_Release(cipherKeyHandle);
@@ -3038,10 +3034,10 @@ static Sec_Result process_ec_public_key_container(Sec_KeyContainer in_key_contai
             const EC_GROUP* group = EC_KEY_get0_group(*ec_key);
             EC_POINT* ec_point = EC_POINT_new(group);
             BN_CTX_start(bn_ctx);
-            BIGNUM* xp;
-            BIGNUM* yp;
+            BIGNUM* xp = BN_CTX_get(bn_ctx);
+            BIGNUM* yp = BN_CTX_get(bn_ctx);
 
-            if (((xp = BN_CTX_get(bn_ctx)) == NULL) || ((yp = BN_CTX_get(bn_ctx)) == NULL))
+            if (xp == NULL || yp == NULL)
                 return SEC_RESULT_INVALID_PARAMETERS;
 
             EC_POINT_set_affine_coordinates_GFp(group, ec_point,
@@ -3250,7 +3246,7 @@ static Sec_Result process_store_key_container(Sec_ProcessorHandle* processorHand
 
         // Export the key
         result = export_key(processorHandle, &derived_key, NULL, key_buffer, SEC_KEYCONTAINER_MAX_LEN, key_length);
-        sa_invoke(processorHandle, SA_KEY_RELEASE, derived_key.handle);
+        sa_key_release(derived_key.handle);
         if (result != SEC_RESULT_SUCCESS) {
             SEC_LOG_ERROR("Export of store keycontainer derived key failed");
             return SEC_RESULT_FAILURE;
@@ -3269,7 +3265,7 @@ static Sec_Result process_store_key_container(Sec_ProcessorHandle* processorHand
 }
 
 static Sec_Result derive_root_key_ladder(Sec_ProcessorHandle* processorHandle, const SEC_BYTE* c1, const SEC_BYTE* c2,
-        const SEC_BYTE* c3, const SEC_BYTE* c4, SEC_SIZE key_size, const sa_key* key, Sec_KeyType key_type) {
+        const SEC_BYTE* c3, const SEC_BYTE* c4, SEC_SIZE key_size, sa_key* key, Sec_KeyType key_type) {
 
     sa_kdf_parameters_root_key_ladder kdf_parameters = {
             .c1 = c1,
@@ -3283,13 +3279,12 @@ static Sec_Result derive_root_key_ladder(Sec_ProcessorHandle* processorHandle, c
 
     sa_rights rights;
     rights_set_allow_all(&rights, key_type);
-    sa_status status = sa_invoke(processorHandle, SA_KEY_DERIVE, key, &rights, SA_KDF_ALGORITHM_ROOT_KEY_LADDER,
-            &kdf_parameters);
+    sa_status status = sa_key_derive(key, &rights, SA_KDF_ALGORITHM_ROOT_KEY_LADDER, &kdf_parameters);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
 
-static Sec_Result derive_base_key(Sec_ProcessorHandle* processorHandle, SEC_BYTE* nonce, const sa_key* key,
+static Sec_Result derive_base_key(Sec_ProcessorHandle* processorHandle, SEC_BYTE* nonce, sa_key* key,
         Sec_KeyType key_type) {
     SEC_SIZE keySize = SEC_AES_BLOCK_SIZE;
     SEC_BYTE c1[keySize];
@@ -3344,8 +3339,7 @@ static Sec_Result derive_hkdf(Sec_ProcessorHandle* processorHandle, Sec_MacAlgor
 
     sa_rights rights;
     rights_set_allow_all(&rights, typeDerived);
-    sa_status status = sa_invoke(processorHandle, SA_KEY_DERIVE, derived_key, &rights, SA_KDF_ALGORITHM_HKDF,
-            &kdf_parameters);
+    sa_status status = sa_key_derive(derived_key, &rights, SA_KDF_ALGORITHM_HKDF, &kdf_parameters);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -3374,8 +3368,7 @@ static Sec_Result derive_kdf_concat(Sec_ProcessorHandle* processorHandle, Sec_Di
 
     sa_rights rights;
     rights_set_allow_all(&rights, typeDerived);
-    sa_status status = sa_invoke(processorHandle, SA_KEY_DERIVE, derived_key, &rights, SA_KDF_ALGORITHM_CONCAT,
-            &kdf_parameters);
+    sa_status status = sa_key_derive(derived_key, &rights, SA_KDF_ALGORITHM_CONCAT, &kdf_parameters);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -3407,8 +3400,7 @@ static Sec_Result derive_kdf_cmac(Sec_ProcessorHandle* processorHandle, Sec_KeyT
 
     sa_rights rights;
     rights_set_allow_all(&rights, typeDerived);
-    sa_status status = sa_invoke(processorHandle, SA_KEY_DERIVE, derived_key, &rights, SA_KDF_ALGORITHM_CMAC,
-            &cmac_parameters);
+    sa_status status = sa_key_derive(derived_key, &rights, SA_KDF_ALGORITHM_CMAC, &cmac_parameters);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
@@ -3446,8 +3438,8 @@ static Sec_Result unwrap_key(Sec_ProcessorHandle* processorHandle, Sec_CipherAlg
     }
 
     Sec_Key unwrapped_key;
-    sa_status status = sa_invoke(processorHandle, SA_KEY_UNWRAP, &unwrapped_key.handle, &rights, key_type,
-            key_parameters, cipher_algorithm, cipher_parameters, keyHandle->key.handle, input, (size_t) input_len);
+    sa_status status = sa_key_unwrap(&unwrapped_key.handle, &rights, key_type, key_parameters, cipher_algorithm,
+            cipher_parameters, keyHandle->key.handle, input, input_len);
     SEC_FREE(key_parameters);
     SEC_FREE(cipher_parameters);
     SecKey_Release(keyHandle);
@@ -3455,7 +3447,7 @@ static Sec_Result unwrap_key(Sec_ProcessorHandle* processorHandle, Sec_CipherAlg
 
     // Export the key
     result = export_key(processorHandle, &unwrapped_key, NULL, out_key, SEC_KEYCONTAINER_MAX_LEN, out_key_len);
-    sa_invoke(processorHandle, SA_KEY_RELEASE, unwrapped_key.handle);
+    sa_key_release(unwrapped_key.handle);
     return result;
 }
 
@@ -3518,8 +3510,7 @@ static Sec_Result export_key(Sec_ProcessorHandle* processorHandle, Sec_Key* key,
     // Get key length.
     if (exportedKey == NULL) {
         size_t out_length = 0;
-        sa_status status = sa_invoke(processorHandle, SA_KEY_EXPORT, exportedKey, &out_length, mixin,
-                (size_t) SEC_AES_BLOCK_SIZE, key->handle);
+        sa_status status = sa_key_export(exportedKey, &out_length, mixin, SEC_AES_BLOCK_SIZE, key->handle);
         CHECK_STATUS(status)
 
         // Include the length of the derivationInput.
@@ -3528,8 +3519,7 @@ static Sec_Result export_key(Sec_ProcessorHandle* processorHandle, Sec_Key* key,
     }
 
     size_t out_length = keyBufferLen;
-    sa_status status = sa_invoke(processorHandle, SA_KEY_EXPORT, exportedKey, &out_length, mixin,
-            (size_t) SEC_AES_BLOCK_SIZE, key->handle);
+    sa_status status = sa_key_export(exportedKey, &out_length, mixin, SEC_AES_BLOCK_SIZE, key->handle);
     CHECK_STATUS(status)
     *keyBytesWritten = out_length;
     return SEC_RESULT_SUCCESS;

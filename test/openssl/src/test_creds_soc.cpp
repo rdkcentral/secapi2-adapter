@@ -16,7 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sa_types.h"
+#include "sa.h"
 #include "sec_security_utils.h"
 #include "test_creds.h"
 #include "test_ctx.h"

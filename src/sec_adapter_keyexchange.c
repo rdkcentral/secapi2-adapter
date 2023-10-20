@@ -131,13 +131,11 @@ Sec_Result SecKeyExchange_GenerateKeys(Sec_KeyExchangeHandle* keyExchangeHandle,
         return SEC_RESULT_FAILURE;
     }
 
-    sa_status status = sa_invoke(keyExchangeHandle->processorHandle, SA_KEY_GENERATE, keyExchangeHandle->key, &rights,
-            type, keyExchangeHandle->parameters);
+    sa_status status = sa_key_generate(keyExchangeHandle->key, &rights, type, keyExchangeHandle->parameters);
     CHECK_STATUS(status)
     size_t out_length = BUFFER_SIZE;
     SEC_BYTE public_key_bytes[BUFFER_SIZE];
-    status = sa_invoke(keyExchangeHandle->processorHandle, SA_KEY_GET_PUBLIC, &public_key_bytes, &out_length,
-            *keyExchangeHandle->key);
+    status = sa_key_get_public(&public_key_bytes, &out_length, *keyExchangeHandle->key);
     CHECK_STATUS(status)
 
     switch (keyExchangeHandle->alg) {
@@ -231,8 +229,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
     switch (keyExchangeHandle->alg) {
         case SEC_KEYEXCHANGE_DH: {
             sa_header header;
-            sa_status status = sa_invoke(keyExchangeHandle->processorHandle, SA_KEY_HEADER, &header,
-                    *keyExchangeHandle->key);
+            sa_status status = sa_key_header(&header, *keyExchangeHandle->key);
             CHECK_STATUS(status)
 
             algorithm = SA_KEY_EXCHANGE_ALGORITHM_DH;
@@ -348,8 +345,8 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
     }
 
     sa_key shared_secret;
-    sa_status status = sa_invoke(keyExchangeHandle->processorHandle, SA_KEY_EXCHANGE, &shared_secret, &rights,
-            algorithm, *keyExchangeHandle->key, public_key_bytes, (size_t) key_len, NULL);
+    sa_status status = sa_key_exchange(&shared_secret, &rights, algorithm, *keyExchangeHandle->key, public_key_bytes,
+            key_len, NULL);
     free(public_key_bytes);
     CHECK_STATUS(status)
 
@@ -361,7 +358,7 @@ Sec_Result SecKeyExchange_ComputeSecret(Sec_KeyExchangeHandle* keyExchangeHandle
 Sec_Result SecKeyExchange_Release(Sec_KeyExchangeHandle* keyExchangeHandle) {
     if (keyExchangeHandle != NULL) {
         if (keyExchangeHandle->key != NULL)
-            sa_invoke(keyExchangeHandle->processorHandle, SA_KEY_RELEASE, *keyExchangeHandle->key);
+            sa_key_release(*keyExchangeHandle->key);
 
         SEC_FREE(keyExchangeHandle->parameters);
         SEC_FREE(keyExchangeHandle->key);

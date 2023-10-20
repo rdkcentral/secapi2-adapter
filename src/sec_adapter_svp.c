@@ -16,107 +16,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sa_svp.h"
-#include "sec_security_svp.h" // NOLINT
-
-sa_svp_buffer get_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle) {
-    if (processorHandle == NULL || opaqueBufferHandle == NULL)
-        return INVALID_HANDLE;
-
-    // Look up the buffer for this processorHandle.
-    pthread_mutex_lock(&opaqueBufferHandle->mutex);
-    svp_processor_buffer* next_processor_buffer = opaqueBufferHandle->handles;
-    svp_processor_buffer* previous_processor_buffer = NULL;
-    while (next_processor_buffer != NULL) {
-        if (next_processor_buffer->processorHandle == processorHandle) {
-            pthread_mutex_unlock(&opaqueBufferHandle->mutex);
-            return next_processor_buffer->svp_buffer;
-        }
-
-        previous_processor_buffer = next_processor_buffer;
-        next_processor_buffer = next_processor_buffer->next;
-    }
-
-    // Not found, so create a new one.
-    sa_svp_buffer svp_buffer;
-    if (sa_invoke(processorHandle, SA_SVP_BUFFER_CREATE, &svp_buffer, opaqueBufferHandle->svp_memory,
-                opaqueBufferHandle->size) != SA_STATUS_OK) {
-        SEC_LOG_ERROR("sa_svp_buffer_create failed");
-        return INVALID_HANDLE;
-    }
-
-    next_processor_buffer = (svp_processor_buffer*) calloc(1, sizeof(svp_processor_buffer));
-    if (previous_processor_buffer == NULL)
-        opaqueBufferHandle->handles = next_processor_buffer;
-    else
-        previous_processor_buffer->next = next_processor_buffer;
-
-    next_processor_buffer->processorHandle = processorHandle;
-    next_processor_buffer->svp_buffer = svp_buffer;
-    pthread_mutex_unlock(&opaqueBufferHandle->mutex);
-
-    // Register this opaqueBufferHandle with processorHandle for later clean up.
-    pthread_mutex_lock(&processorHandle->mutex);
-    opaque_buffer_handle_entry* opaque_buffer_handle =
-            (opaque_buffer_handle_entry*) calloc(1, sizeof(opaque_buffer_handle_entry));
-    opaque_buffer_handle->opaqueBufferHandle = opaqueBufferHandle;
-    opaque_buffer_handle->next = processorHandle->opaque_buffer_handle;
-    processorHandle->opaque_buffer_handle = opaque_buffer_handle;
-    pthread_mutex_unlock(&processorHandle->mutex);
-
-    return next_processor_buffer->svp_buffer;
-}
-
-void release_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle) {
-    if (processorHandle == NULL || opaqueBufferHandle == NULL)
-        return;
-
-    // Find the buffer for this processorHandle and release it.
-    pthread_mutex_lock(&opaqueBufferHandle->mutex);
-    svp_processor_buffer* next_processor_buffer = opaqueBufferHandle->handles;
-    svp_processor_buffer* previous_processor_buffer = NULL;
-    while (next_processor_buffer != NULL) {
-        if (next_processor_buffer->processorHandle == processorHandle) {
-            if (previous_processor_buffer == NULL)
-                opaqueBufferHandle->handles = next_processor_buffer->next;
-            else
-                previous_processor_buffer->next = next_processor_buffer->next;
-
-            void* svp_memory;
-            size_t svp_size;
-            sa_invoke(processorHandle, SA_SVP_BUFFER_RELEASE, &svp_memory, &svp_size,
-                    next_processor_buffer->svp_buffer);
-            free(next_processor_buffer);
-            break;
-        }
-
-        previous_processor_buffer = next_processor_buffer;
-        next_processor_buffer = next_processor_buffer->next;
-    }
-
-    pthread_mutex_unlock(&opaqueBufferHandle->mutex);
-
-    // Unregister this opaqueBufferHandle from the processorHandle.
-    pthread_mutex_lock(&processorHandle->mutex);
-    opaque_buffer_handle_entry* next_opaque_buffer_handle = processorHandle->opaque_buffer_handle;
-    opaque_buffer_handle_entry* previous_opaque_buffer_handle = NULL;
-    while (next_opaque_buffer_handle != NULL) {
-        if (next_opaque_buffer_handle->opaqueBufferHandle == opaqueBufferHandle) {
-            if (previous_opaque_buffer_handle == NULL)
-                processorHandle->opaque_buffer_handle = next_opaque_buffer_handle->next;
-            else
-                previous_opaque_buffer_handle->next = next_opaque_buffer_handle->next;
-
-            free(next_opaque_buffer_handle);
-            break;
-        }
-
-        previous_opaque_buffer_handle = next_opaque_buffer_handle;
-        next_opaque_buffer_handle = next_opaque_buffer_handle->next;
-    }
-
-    pthread_mutex_unlock(&processorHandle->mutex);
-}
+#include "sec_security_svp.h"
 
 // Deprecated
 Sec_Result Sec_OpaqueBufferMalloc(SEC_SIZE bufLength, void** handle, void* params) {
@@ -140,10 +40,10 @@ Sec_Result SecOpaqueBuffer_Create(Sec_OpaqueBufferHandle** opaqueBufferHandle, v
         return SEC_RESULT_FAILURE;
     }
 
-    if (pthread_mutex_init(&(*opaqueBufferHandle)->mutex, NULL) != 0) {
-        SEC_LOG_ERROR("Error initializing mutex");
-        free(*opaqueBufferHandle);
-        return SEC_RESULT_FAILURE;
+    sa_status status = sa_svp_buffer_create(&(*opaqueBufferHandle)->svp_buffer, svp_memory, bufLength);
+    if (status != SA_STATUS_OK) {
+        SEC_LOG_ERROR("sa_svp_buffer_create failed");
+        CHECK_STATUS(status)
     }
 
     (*opaqueBufferHandle)->svp_memory = svp_memory;
@@ -207,25 +107,8 @@ Sec_Result SecOpaqueBuffer_Write(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC
     }
 
     sa_svp_offset svp_offset = {offset, 0, length};
-    if (opaqueBufferHandle->handles != NULL) {
-        sa_status status = sa_invoke(opaqueBufferHandle->handles->processorHandle, SA_SVP_BUFFER_WRITE,
-                opaqueBufferHandle->handles->svp_buffer, data, (size_t) length, &svp_offset, 1);
-        CHECK_STATUS(status)
-    } else {
-        sa_svp_buffer svp_buffer;
-        if (sa_svp_buffer_create(&svp_buffer, opaqueBufferHandle->svp_memory,
-                    opaqueBufferHandle->size) != SA_STATUS_OK) {
-            SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            return SEC_RESULT_FAILURE;
-        }
-
-        sa_status status = sa_svp_buffer_write(svp_buffer, data, length, &svp_offset, 1);
-        void* svp_memory;
-        size_t svp_size;
-        sa_svp_buffer_release(&svp_memory, &svp_size, svp_buffer);
-        CHECK_STATUS(status)
-    }
-
+    sa_status status = sa_svp_buffer_write((*opaqueBufferHandle).svp_buffer, data, length, &svp_offset, 1);
+    CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
 
@@ -235,11 +118,7 @@ Sec_Result Sec_OpaqueBufferFree(Sec_OpaqueBufferHandle* opaqueBufferHandle, void
 
 Sec_Result SecOpaqueBuffer_Free(Sec_OpaqueBufferHandle* opaqueBufferHandle) {
     if (opaqueBufferHandle != NULL) {
-        while (opaqueBufferHandle->handles != NULL)
-            release_svp_buffer(opaqueBufferHandle->handles->processorHandle, opaqueBufferHandle);
-
-        sa_svp_memory_free(opaqueBufferHandle->svp_memory);
-        pthread_mutex_destroy(&opaqueBufferHandle->mutex);
+        sa_svp_buffer_free(opaqueBufferHandle->svp_buffer);
         SEC_FREE(opaqueBufferHandle);
     }
 
@@ -254,39 +133,9 @@ Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, S
     }
 
     sa_svp_offset svp_offset = {out_offset, in_offset, num_to_copy};
-    if (outOpaqueBufferHandle->handles != NULL) {
-        sa_svp_buffer in_svp_buffer = get_svp_buffer(outOpaqueBufferHandle->handles->processorHandle,
-                inOpaqueBufferHandle);
-        if (in_svp_buffer == INVALID_HANDLE)
-            return SEC_RESULT_FAILURE;
-
-        sa_status status = sa_invoke(outOpaqueBufferHandle->handles->processorHandle, SA_SVP_BUFFER_COPY,
-                outOpaqueBufferHandle->handles->svp_buffer, in_svp_buffer, &svp_offset, (size_t) 1);
-        CHECK_STATUS(status)
-    } else {
-        void* svp_memory;
-        size_t svp_size;
-        sa_svp_buffer out_svp_buffer;
-        if (sa_svp_buffer_create(&out_svp_buffer, outOpaqueBufferHandle->svp_memory,
-                    outOpaqueBufferHandle->size) != SA_STATUS_OK) {
-            SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            return SEC_RESULT_FAILURE;
-        }
-
-        sa_svp_buffer in_svp_buffer;
-        if (sa_svp_buffer_create(&in_svp_buffer, inOpaqueBufferHandle->svp_memory,
-                    inOpaqueBufferHandle->size) != SA_STATUS_OK) {
-            SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            sa_svp_buffer_release(&svp_memory, &svp_size, out_svp_buffer);
-            return SEC_RESULT_FAILURE;
-        }
-
-        sa_status status = sa_svp_buffer_copy(out_svp_buffer, in_svp_buffer, &svp_offset, (size_t) 1);
-        sa_svp_buffer_release(&svp_memory, &svp_size, out_svp_buffer);
-        sa_svp_buffer_release(&svp_memory, &svp_size, in_svp_buffer);
-        CHECK_STATUS(status)
-    }
-
+    sa_status status = sa_svp_buffer_copy(outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer,
+            &svp_offset, 1);
+    CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
 
@@ -296,11 +145,9 @@ Sec_Result SecOpaqueBuffer_Release(Sec_OpaqueBufferHandle* opaqueBufferHandle, S
         return SEC_RESULT_FAILURE;
     }
 
-    while (opaqueBufferHandle->handles != NULL)
-        release_svp_buffer(opaqueBufferHandle->handles->processorHandle, opaqueBufferHandle);
-
-    *svpHandle = opaqueBufferHandle->svp_memory;
-    SEC_FREE(opaqueBufferHandle);
+    size_t out_length;
+    sa_status status = sa_svp_buffer_release(svpHandle, &out_length, opaqueBufferHandle->svp_buffer);
+    CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
 
@@ -335,43 +182,8 @@ Sec_Result SecOpaqueBuffer_CopyByIndex(Sec_OpaqueBufferHandle* outOpaqueBufferHa
         svp_offsets[i].length = copyIndexArray[i].bytes_to_copy;
     }
 
-    sa_status status;
-    if (outOpaqueBufferHandle->handles != NULL) {
-        sa_svp_buffer in_svp_buffer = get_svp_buffer(outOpaqueBufferHandle->handles->processorHandle,
-                inOpaqueBufferHandle);
-        if (in_svp_buffer == INVALID_HANDLE) {
-            SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            SEC_FREE(svp_offsets);
-            return SEC_RESULT_FAILURE;
-        }
-
-        status = sa_invoke(outOpaqueBufferHandle->handles->processorHandle, SA_SVP_BUFFER_COPY,
-                outOpaqueBufferHandle->handles->svp_buffer, in_svp_buffer, svp_offsets, (size_t) numOfIndexes);
-    } else {
-        void* svp_memory;
-        size_t svp_size;
-        sa_svp_buffer out_svp_buffer;
-        if (sa_svp_buffer_create(&out_svp_buffer, outOpaqueBufferHandle->svp_memory,
-                    outOpaqueBufferHandle->size) != SA_STATUS_OK) {
-            SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            SEC_FREE(svp_offsets);
-            return SEC_RESULT_FAILURE;
-        }
-
-        sa_svp_buffer in_svp_buffer;
-        if (sa_svp_buffer_create(&in_svp_buffer, inOpaqueBufferHandle->svp_memory,
-                    inOpaqueBufferHandle->size) != SA_STATUS_OK) {
-            SEC_LOG_ERROR("sa_svp_buffer_create failed");
-            sa_svp_buffer_release(&svp_memory, &svp_size, out_svp_buffer);
-            SEC_FREE(svp_offsets);
-            return SEC_RESULT_FAILURE;
-        }
-
-        status = sa_svp_buffer_copy(out_svp_buffer, in_svp_buffer, svp_offsets, (size_t) numOfIndexes);
-        sa_svp_buffer_release(&svp_memory, &svp_size, out_svp_buffer);
-        sa_svp_buffer_release(&svp_memory, &svp_size, in_svp_buffer);
-    }
-
+    sa_status status = sa_svp_buffer_copy(outOpaqueBufferHandle->svp_buffer, inOpaqueBufferHandle->svp_buffer,
+            svp_offsets, numOfIndexes);
     SEC_FREE(svp_offsets);
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;

@@ -18,17 +18,11 @@
 
 #include "sec_adapter_processor.h" // NOLINT
 #include "sa.h"
-#include "sec_security_svp.h"
-
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static Sec_ProcessorHandle* processorHandleList = NULL;
 
 struct Sec_ProcessorInitParams_struct {
 };
 
 static Sec_Result Sec_SetStorageDir(const char* provided_dir, const char* default_dir, char* output_dir);
-
-static void* sa_invoke_handler(void* processorHandle);
 
 /**
  * @brief Initialize secure processor.
@@ -44,8 +38,7 @@ static void* sa_invoke_handler(void* processorHandle);
  *
  * @return The status of the operation.
  */
-Sec_Result SecProcessor_GetInstance(Sec_ProcessorHandle** processorHandle,
-        Sec_ProcessorInitParams* socInitParams) {
+Sec_Result SecProcessor_GetInstance(Sec_ProcessorHandle** processorHandle, Sec_ProcessorInitParams* socInitParams) {
     return SecProcessor_GetInstance_Directories(processorHandle, SEC_GLOBAL_DIR_DEFAULT, SEC_GLOBAL_DIR_DEFAULT);
 }
 
@@ -136,33 +129,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return result;
     }
 
-    if (pthread_mutex_init(&newProcessorHandle->mutex, NULL) != 0) {
-        SEC_LOG_ERROR("Error initializing mutex");
-        SEC_FREE(newProcessorHandle->app_dir);
-        SEC_FREE(newProcessorHandle->global_dir);
-        SEC_FREE(newProcessorHandle);
-        return SEC_RESULT_FAILURE;
-    }
-
-    if (pthread_cond_init(&newProcessorHandle->cond, NULL) != 0) {
-        SEC_LOG_ERROR("Error creating app_dir");
-        pthread_mutex_destroy(&newProcessorHandle->mutex);
-        SEC_FREE(newProcessorHandle->app_dir);
-        SEC_FREE(newProcessorHandle->global_dir);
-        SEC_FREE(newProcessorHandle);
-        return SEC_RESULT_FAILURE;
-    }
-
-    if (pthread_create(&newProcessorHandle->thread, NULL, sa_invoke_handler, newProcessorHandle) != 0) {
-        SEC_LOG_ERROR("Error creating app_dir");
-        pthread_mutex_destroy(&newProcessorHandle->mutex);
-        pthread_cond_destroy(&newProcessorHandle->cond);
-        SEC_FREE(newProcessorHandle->app_dir);
-        SEC_FREE(newProcessorHandle->global_dir);
-        SEC_FREE(newProcessorHandle);
-        return SEC_RESULT_FAILURE;
-    }
-
     /* generate sec store proc ins */
     result = SecStore_GenerateLadderInputs(newProcessorHandle, SEC_STORE_AES_LADDER_INPUT, NULL,
             (SEC_BYTE*) &derived_inputs, sizeof(derived_inputs));
@@ -238,10 +204,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return result;
     }
 
-    pthread_mutex_lock(&mutex);
-    newProcessorHandle->nextHandle = processorHandleList;
-    processorHandleList = newProcessorHandle;
-    pthread_mutex_unlock(&mutex);
     *processorHandle = newProcessorHandle;
     return SEC_RESULT_SUCCESS;
 }
@@ -357,29 +319,6 @@ Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
     if (processorHandle == NULL)
         return SEC_RESULT_INVALID_HANDLE;
 
-    Sec_ProcessorHandle* tempHandle = processorHandleList;
-    Sec_ProcessorHandle* parentHandle = NULL;
-    while (tempHandle != NULL && tempHandle != processorHandle) {
-        parentHandle = tempHandle;
-        tempHandle = tempHandle->nextHandle;
-    }
-
-    if (tempHandle != processorHandle) {
-        SEC_LOG_ERROR("Attempting to free a handle that has already been freed");
-        return SEC_RESULT_INVALID_HANDLE;
-    }
-
-    pthread_mutex_lock(&mutex);
-    if (parentHandle == NULL)
-        processorHandleList = tempHandle->nextHandle;
-    else
-        parentHandle->nextHandle = tempHandle->nextHandle;
-
-    pthread_mutex_unlock(&mutex);
-
-    while (processorHandle->opaque_buffer_handle != NULL)
-        release_svp_buffer(processorHandle, processorHandle->opaque_buffer_handle->opaqueBufferHandle);
-
     /* release ram keys */
     while (processorHandle->ram_keys != NULL)
         SecKey_Delete(processorHandle, processorHandle->ram_keys->object_id);
@@ -391,16 +330,6 @@ Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
     /* release ram certs */
     while (processorHandle->ram_certs != NULL)
         SecCertificate_Delete(processorHandle, processorHandle->ram_certs->object_id);
-
-    pthread_mutex_lock(&processorHandle->mutex);
-    processorHandle->shutdown = true;
-    pthread_cond_broadcast(&processorHandle->cond);
-    pthread_mutex_unlock(&processorHandle->mutex);
-
-    void* thread_return = NULL;
-    pthread_join(processorHandle->thread, &thread_return);
-    pthread_cond_destroy(&processorHandle->cond);
-    pthread_mutex_destroy(&processorHandle->mutex);
 
     SEC_FREE(processorHandle->app_dir);
     SEC_FREE(processorHandle->global_dir);
@@ -458,236 +387,4 @@ Sec_Result Sec_SetStorageDir(const char* provided_dir, const char* default_dir, 
     }
 
     return SEC_RESULT_SUCCESS;
-}
-
-void sa_process_command(sa_command* command) {
-    switch (command->command_id) {
-        case SA_KEY_GENERATE:
-            command->result = sa_key_generate(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_key_type),
-                    va_arg(*command->arguments, void*));
-            break;
-
-        case SA_KEY_EXPORT:
-            command->result = sa_key_export(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t*),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_key));
-            break;
-
-        case SA_KEY_IMPORT:
-            command->result = sa_key_import(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_key_format), va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t), va_arg(*command->arguments, void*));
-            break;
-
-        case SA_KEY_UNWRAP:
-            command->result = sa_key_unwrap(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_key_type),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, sa_cipher_algorithm),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_KEY_GET_PUBLIC:
-            command->result = sa_key_get_public(va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, sa_key));
-            break;
-
-        case SA_KEY_DERIVE:
-            command->result = sa_key_derive(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_kdf_algorithm),
-                    va_arg(*command->arguments, void*));
-            break;
-
-        case SA_KEY_EXCHANGE:
-            command->result = sa_key_exchange(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_key_exchange_algorithm),
-                    va_arg(*command->arguments, sa_key), va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t), va_arg(*command->arguments, void*));
-            break;
-
-        case SA_KEY_RELEASE:
-            command->result = sa_key_release(va_arg(*command->arguments, sa_key));
-            break;
-
-        case SA_KEY_HEADER:
-            command->result = sa_key_header(va_arg(*command->arguments, sa_header*),
-                    va_arg(*command->arguments, sa_key));
-            break;
-
-        case SA_KEY_DIGEST:
-            command->result = sa_key_digest(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t*),
-                    va_arg(*command->arguments, sa_key), va_arg(*command->arguments, sa_digest_algorithm));
-            break;
-
-        case SA_CRYPTO_CIPHER_INIT:
-            command->result = sa_crypto_cipher_init(va_arg(*command->arguments, sa_crypto_cipher_context*),
-                    va_arg(*command->arguments, sa_cipher_algorithm), va_arg(*command->arguments, sa_cipher_mode),
-                    va_arg(*command->arguments, sa_key), va_arg(*command->arguments, void*));
-            break;
-
-        case SA_CRYPTO_CIPHER_UPDATE_IV:
-            command->result = sa_crypto_cipher_update_iv(va_arg(*command->arguments, sa_crypto_cipher_context),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_CRYPTO_CIPHER_PROCESS:
-            command->result = sa_crypto_cipher_process(va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, sa_crypto_cipher_context), va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, size_t*));
-            break;
-
-        case SA_CRYPTO_CIPHER_PROCESS_LAST:
-            command->result = sa_crypto_cipher_process_last(va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, sa_crypto_cipher_context), va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, void*));
-            break;
-
-        case SA_CRYPTO_CIPHER_RELEASE:
-            command->result = sa_crypto_cipher_release(va_arg(*command->arguments, sa_crypto_cipher_context));
-            break;
-
-        case SA_CRYPTO_MAC_INIT:
-            command->result = sa_crypto_mac_init(va_arg(*command->arguments, sa_crypto_mac_context*),
-                    va_arg(*command->arguments, sa_mac_algorithm), va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, void*));
-            break;
-
-        case SA_CRYPTO_MAC_PROCESS:
-            command->result = sa_crypto_mac_process(va_arg(*command->arguments, sa_crypto_mac_context),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_CRYPTO_MAC_PROCESS_KEY:
-            command->result = sa_crypto_mac_process_key(va_arg(*command->arguments, sa_crypto_mac_context),
-                    va_arg(*command->arguments, sa_key));
-            break;
-
-        case SA_CRYPTO_MAC_COMPUTE:
-            command->result = sa_crypto_mac_compute(va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, sa_crypto_mac_context));
-            break;
-
-        case SA_CRYPTO_MAC_RELEASE:
-            command->result = sa_crypto_mac_release(va_arg(*command->arguments, sa_crypto_mac_context));
-            break;
-
-        case SA_CRYPTO_SIGN:
-            command->result = sa_crypto_sign(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t*),
-                    va_arg(*command->arguments, sa_signature_algorithm), va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, void*));
-            break;
-
-        case SA_SVP_BUFFER_CREATE:
-            command->result = sa_svp_buffer_create(va_arg(*command->arguments, sa_svp_buffer*),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_SVP_BUFFER_FREE:
-            command->result = sa_svp_buffer_free(va_arg(*command->arguments, sa_svp_buffer));
-            break;
-
-        case SA_SVP_BUFFER_RELEASE:
-            command->result = sa_svp_buffer_release(va_arg(*command->arguments, void**),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, sa_svp_buffer));
-            break;
-
-        case SA_SVP_BUFFER_WRITE:
-            command->result = sa_svp_buffer_write(va_arg(*command->arguments, sa_svp_buffer),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_svp_offset*), va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_SVP_BUFFER_COPY:
-            command->result = sa_svp_buffer_copy(va_arg(*command->arguments, sa_svp_buffer),
-                    va_arg(*command->arguments, sa_svp_buffer), va_arg(*command->arguments, sa_svp_offset*),
-                    va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_SVP_KEY_CHECK:
-            command->result = sa_svp_key_check(va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, sa_buffer*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_SVP_BUFFER_CHECK:
-            command->result = sa_svp_buffer_check(va_arg(*command->arguments, sa_svp_buffer),
-                    va_arg(*command->arguments, size_t), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_digest_algorithm), va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t));
-            break;
-
-        case SA_PROCESS_COMMON_ENCRYPTION:
-            command->result = sa_process_common_encryption(va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_sample*));
-            break;
-
-        case SA_GET_VERSION:
-        case SA_GET_DEVICE_ID:
-        case SA_CRYPTO_RANDOM:
-            // Doesn't require a handle so called directly and not in the invoke thread.
-        case SA_GET_NAME:
-        case SA_SVP_BUFFER_ALLOC:
-        case SA_SVP_SUPPORTED:
-            // Unused
-        default:
-            command->result = SA_STATUS_INTERNAL_ERROR;
-    }
-}
-
-sa_status sa_invoke(Sec_ProcessorHandle* processorHandle, SA_COMMAND_ID command_id, ...) {
-    if (processorHandle == NULL)
-        return SA_STATUS_INVALID_PARAMETER;
-
-    va_list va_args;
-    va_start(va_args, command_id);
-    sa_command command = {command_id, &va_args, -1};
-
-    bool command_queued = false;
-    pthread_mutex_lock(&processorHandle->mutex);
-    while (!processorHandle->shutdown && command.result == -1) {
-        if (processorHandle->queue_size < MAX_QUEUE_SIZE && !command_queued) {
-            processorHandle->queue[(processorHandle->queue_front + processorHandle->queue_size) % MAX_QUEUE_SIZE] =
-                    &command;
-            processorHandle->queue_size++;
-            command_queued = true;
-            pthread_cond_broadcast(&processorHandle->cond);
-        }
-
-        pthread_cond_wait(&processorHandle->cond, &processorHandle->mutex);
-    }
-
-    va_end(va_args);
-    pthread_mutex_unlock(&processorHandle->mutex);
-    return command.result;
-}
-
-void* sa_invoke_handler(void* handle) {
-    if (handle == NULL)
-        return (void*) SEC_RESULT_INVALID_HANDLE; // NOLINT
-
-    Sec_ProcessorHandle* processorHandle = (Sec_ProcessorHandle*) handle;
-    pthread_mutex_lock(&processorHandle->mutex);
-    while (!processorHandle->shutdown) {
-        if (processorHandle->queue_size > 0) {
-            sa_command* command = processorHandle->queue[processorHandle->queue_front];
-            processorHandle->queue[processorHandle->queue_front] = NULL;
-            processorHandle->queue_front = ++processorHandle->queue_front % MAX_QUEUE_SIZE;
-            processorHandle->queue_size--;
-
-            if (command != NULL) {
-                pthread_mutex_unlock(&processorHandle->mutex);
-                sa_process_command(command);
-                pthread_mutex_lock(&processorHandle->mutex);
-            }
-
-            pthread_cond_broadcast(&processorHandle->cond);
-        } else {
-            pthread_cond_wait(&processorHandle->cond, &processorHandle->mutex);
-        }
-    }
-
-    pthread_mutex_unlock(&processorHandle->mutex);
-    return (void*) SEC_RESULT_SUCCESS;
 }

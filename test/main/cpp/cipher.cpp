@@ -1310,8 +1310,9 @@ Sec_Result testProcessOpaqueWithMapAndPattern(SEC_OBJECTID id, TestKey key, Test
     std::vector<SEC_BYTE> decrypted;
     Sec_OpaqueBufferHandle* opaqueBufferHandle;
     SEC_SIZE bytesWritten = 0;
-    Sec_Result result = SecCipher_ProcessOpaqueWithMapAndPattern(cipherHandle, iv.data(), encrypted.data(), encrypted.size(),
-            SEC_TRUE, map, subsampleCount, numEncryptedBlocks, numClearBlocks, &opaqueBufferHandle, &bytesWritten);
+    Sec_Result result = SecCipher_ProcessOpaqueWithMapAndPattern(cipherHandle, iv.data(), encrypted.data(),
+            encrypted.size(), SEC_TRUE, map, subsampleCount, numEncryptedBlocks, numClearBlocks, &opaqueBufferHandle,
+            &bytesWritten);
     if (result != SEC_RESULT_SUCCESS) {
         delete[] map;
         SEC_LOG_ERROR("SecCipher_ProcessOpaqueWithMapAndPattern failed");

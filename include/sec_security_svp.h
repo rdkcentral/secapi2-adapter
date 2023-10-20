@@ -28,17 +28,10 @@
 extern "C" {
 #endif
 
-typedef struct svp_processor_buffer_struct {
-    Sec_ProcessorHandle* processorHandle;
-    sa_svp_buffer svp_buffer;
-    struct svp_processor_buffer_struct* next;
-} svp_processor_buffer;
-
 struct Sec_OpaqueBufferHandle_struct {
+    sa_svp_buffer svp_buffer;
     void* svp_memory;
     size_t size;
-    svp_processor_buffer* handles;
-    pthread_mutex_t mutex;
 };
 
 typedef struct {
@@ -46,15 +39,4 @@ typedef struct {
     size_t offset_in_target;
     size_t bytes_to_copy;
 } SEC_CopyIndex;
-
-Sec_Result SecOpaqueBuffer_CopyByIndex(Sec_OpaqueBufferHandle* outOpaqueBufferHandle,
-        Sec_OpaqueBufferHandle* inOpaqueBufferHandle, SEC_CopyIndex* copyIndexArray, SEC_SIZE numOfIndexes);
-Sec_Result SecOpaqueBuffer_Create(Sec_OpaqueBufferHandle** opaqueBufferHandle, void* svp_memory, SEC_SIZE bufLength);
-sa_svp_buffer get_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle);
-void release_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif // SEC_SECURITY_SVP_H
