@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Comcast Cable Communications Management, LLC
+# Copyright 2020-2025 Comcast Cable Communications Management, LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,13 @@
 
 cmake_minimum_required(VERSION 3.16)
 project(sec_api_2_adapter C CXX)
+
+option(ENABLE_SOC_PROVISION_WIDEVINE       "Enable Widevine Provisioning" OFF)
+option(ENABLE_SOC_PROVISION_PLAYREADY_2K   "Enable PlayReady Model 2K Provisioning" OFF)
+option(ENABLE_SOC_PROVISION_PLAYREADY_3K   "Enable PlayReady Model 3K Provisioning" OFF)
+option(ENABLE_SOC_PROVISION_NETFLIX        "Enable Netflix Provisioning" OFF)
+option(ENABLE_SOC_PROVISION_APPLE_MFI      "Enable Apple MFI Provisioning" OFF)
+option(ENABLE_SOC_PROVISION_APPLE_FAIRPLAY "Enable Apple Fairplay Provisioning" OFF)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 set(CMAKE_C_STANDARD 11)
@@ -45,6 +52,36 @@ if (DEFINED ENABLE_SOC_KEY_TESTS)
     set(CMAKE_CXX_FLAGS "-DENABLE_SOC_KEY_TESTS ${CMAKE_CXX_FLAGS}")
     set(CMAKE_C_FLAGS "-DENABLE_SOC_KEY_TESTS ${CMAKE_C_FLAGS}")
 endif ()
+
+if (ENABLE_SOC_PROVISION_WIDEVINE)
+    set(CMAKE_CXX_FLAGS "-DENABLE_SOC_PROVISION_WIDEVINE ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-DENABLE_SOC_PROVISION_WIDEVINE ${CMAKE_C_FLAGS}")
+endif()
+
+if (ENABLE_SOC_PROVISION_PLAYREADY_2K)
+    set(CMAKE_CXX_FLAGS "-DENABLE_SOC_PROVISION_PLAYREADY_2K ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-DENABLE_SOC_PROVISION_PLAYREADY_2K ${CMAKE_C_FLAGS}")
+endif()
+
+if (ENABLE_SOC_PROVISION_PLAYREADY_3K)
+    set(CMAKE_CXX_FLAGS "-DENABLE_SOC_PROVISION_PLAYREADY_3K ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-DENABLE_SOC_PROVISION_PLAYREADY_3K ${CMAKE_C_FLAGS}")
+endif()
+
+if (ENABLE_SOC_PROVISION_NETFLIX)
+    set(CMAKE_CXX_FLAGS "-DENABLE_SOC_PROVISION_NETFLIX ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-DENABLE_SOC_PROVISION_NETFLIX ${CMAKE_C_FLAGS}")
+endif()
+
+if (ENABLE_SOC_PROVISION_APPLE_MFI)
+    set(CMAKE_CXX_FLAGS "-DENABLE_SOC_PROVISION_APPLE_MFI ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-DENABLE_SOC_PROVISION_APPLE_MFI ${CMAKE_C_FLAGS}")
+endif()
+
+if (ENABLE_SOC_PROVISION_APPLE_FAIRPLAY)
+    set(CMAKE_CXX_FLAGS "-DENABLE_SOC_PROVISION_APPLE_FAIRPLAY ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-DENABLE_SOC_PROVISION_APPLE_FAIRPLAY ${CMAKE_C_FLAGS}")
+endif()
 
 enable_testing()
 
@@ -98,6 +135,7 @@ add_library(sec_api SHARED
         src/sec_adapter_store.c
         src/sec_adapter_utils.c
         src/sec_adapter_utils_time.c
+        src/sec_adapter_soc_provisioning.c
         src/sec_adapter_key_legacy.h)
 
 set_target_properties(sec_api PROPERTIES

@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2023 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2025 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include "sec_adapter_key.h" // NOLINT
 #include "sa.h"
+#include "sec_adapter_soc_provisioning.h"
 #include "sec_adapter_cipher.h"
 #include "sec_adapter_key_legacy.h"
 #include "sec_adapter_processor.h"
@@ -609,6 +610,16 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
     if (data_length > SEC_KEYCONTAINER_MAX_LEN) {
         SEC_LOG_ERROR("Key data is too long");
         return SEC_RESULT_FAILURE;
+    }
+    /*
+     * Check for Specific Object_id and Store in the memory to Process SoC vendor-specific provisioning
+     */
+    if (SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS) {
+       if (store_raw_data(processorHandle, location, object_id, data, data_length) == SEC_RESULT_FAILURE) { 
+           SEC_LOG_ERROR("Failed store_raw_data in SecKey_Provision");
+           return SEC_RESULT_FAILURE;
+       }
+       return SEC_RESULT_SUCCESS;
     }
 
     Sec_Key key;
