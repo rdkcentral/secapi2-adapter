@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2022 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2025 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -131,6 +131,9 @@ extern "C" {
 /* user key space */
 #define SEC_OBJECTID_USER_TOP 0xffffffffffffff00ULL
 #define SEC_OBJECTID_USER_BASE 0xfffffffffffff000ULL
+
+/* Dummy id not be provisioned by Secapi*/
+#define SEC_DUMMY_OBJECTID 0x123456789abcdef0ULL
 
 #if defined(BIT_64) && !defined(__APPLE__)
 #define SEC_OBJECTID_PATTERN "%016lx"

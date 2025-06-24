@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2023 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2025 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #ifndef SEC_SECURITY_H_
 #define SEC_SECURITY_H_
 
+#include "sa_types.h"
 #include "sec_security_common.h"
 #include "sec_security_datatype.h"
 #if !defined(SEC_TARGET_IOS) && !defined(SEC_TARGET_TVOS)
@@ -969,6 +970,19 @@ Sec_Result SecKey_Derive_HKDF_BaseKey(Sec_ProcessorHandle* processorHandle, SEC_
 Sec_Result SecKey_Derive_ConcatKDF_BaseKey(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID idDerived,
         Sec_KeyType typeDerived, Sec_StorageLoc locDerived, Sec_DigestAlgorithm digestAlgorithm, SEC_BYTE* otherInfo,
         SEC_SIZE otherInfoSize, SEC_OBJECTID baseKeyId);
+
+//SoC vendor-specific provisioning
+
+typedef enum  {
+  WIDEVINE_OEM_SOC_PROVISIONING,
+  PLAYREADY_MODEL_3K_SOC_PROVISIONING,
+  PLAYREADY_MODEL_2K_SOC_PROVISIONING,
+  APPLE_MFI_SOC_PROVISIONING,
+  APPLE_FAIRPLAY_SOC_PROVISIONING,
+  NETFLIX_SOC_PROVISIONING
+} sa_key_type_soc_ta;
+
+Sec_Result SecSocProv_Ta_Provision(Sec_ProcessorHandle* processorHandle, sa_key_type_soc_ta key_type);
 
 typedef struct {
     SEC_SIZE clear;
