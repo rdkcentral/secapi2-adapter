@@ -28,39 +28,25 @@
 
 static SEC_OBJECTID Soc_object_ids[] = {
 #if ENABLE_SOC_PROVISION_WIDEVINE
-    // Widevine
     SEC_OBJECTID_WV_KEY,
-    SEC_OBJECTID_WV_CERTBUNDLE,
 #endif
 
 #if ENABLE_SOC_PROVISION_PLAYREADY_2K
-    // PlayReady
     SEC_OBJECTID_PLAYREADY_MODELKEY,
-    SEC_OBJECTID_PLAYREADY_MODELCERT,
 #endif
 
 #if ENABLE_SOC_PROVISION_PLAYREADY_3K
     SEC_OBJECTID_PLAYREADY_MODELKEY_3K,
-    SEC_OBJECTID_PLAYREADY_MODELCERT_3K,
 #endif
 
 #if ENABLE_SOC_PROVISION_NETFLIX
-    // Netflix
     SEC_OBJECTID_NETFLIX_KDE,
     SEC_OBJECTID_NETFLIX_KDH,
     SEC_OBJECTID_NETFLIX_KDW,
-    SEC_OBJECTID_NETFLIX_ESN,
 #endif
 
 #if ENABLE_SOC_PROVISION_APPLE_MFI
-    // Apple MFi
     SEC_OBJECTID_MFI_BASE_KEY,
-    SEC_OBJECTID_MFI_BUNDLE,
-#endif
-
-#if ENABLE_SOC_PROVISION_APPLE_FAIRPLAY
-    // Apple FairPlay
-    SEC_OBJECTID_FAIRPLAY_BUNDLE
 #endif
 };
 
@@ -569,7 +555,7 @@ Sec_Result SecSocProv_SocVendorSpecific(SEC_OBJECTID object_id) {
 }
 
 Sec_Result SecSocProv_Ta_Provision(Sec_ProcessorHandle* processorHandle, sa_key_type_soc_ta key_type) {
-    Sec_Result status = SEC_RESULT_FAILURE;
+    Sec_Result status = SEC_RESULT_SUCCESS;
    switch (key_type) {
     case WIDEVINE_OEM_SOC_PROVISIONING:
 #if ENABLE_SOC_PROVISION_WIDEVINE
