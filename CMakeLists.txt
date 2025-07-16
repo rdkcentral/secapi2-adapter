@@ -140,8 +140,8 @@ add_library(sec_api SHARED
 
 set_target_properties(sec_api PROPERTIES
         LINKER_LANGUAGE C
-        SO_VERSION 2.3
-        VERSION 2.3.2.27
+        SO_VERSION 2.4
+        VERSION 2.4.0.0
         )
 
 target_compile_options(sec_api PRIVATE -Wno-deprecated-declarations)
