@@ -1,35 +1,228 @@
 name: ci
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 jobs:
-  core:
+  ubuntu_2004_x64:
+    name: Build on ${{ matrix.name }}
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-22.04]
+        include:
+          - name: Clang-10
+            packages: clang-10
+            c_compiler: clang-10
+            cxx_compiler: clang++-10
 
-    runs-on: ${{ matrix.os }}
+          - name: Clang-11
+            packages: clang-11
+            c_compiler: clang-11
+            cxx_compiler: clang++-11
 
+          - name: Clang-12
+            packages: clang-12
+            c_compiler: clang-12
+            cxx_compiler: clang++-12
+
+          - name: GCC-8
+            packages: g++-8
+            c_compiler: gcc-8
+            cxx_compiler: g++-8
+
+          - name: GCC-9
+            packages: g++-9
+            c_compiler: gcc-9
+            cxx_compiler: g++-9
+
+          - name: GCC-10
+            packages: g++-10
+            c_compiler: gcc-10
+            cxx_compiler: g++-10
     steps:
-    - uses: actions/checkout@v3
-    - name: Install YAJL
-      run: sudo apt-get install -y libyajl-dev
-      continue-on-error: true
-    - name: Install OpenSSL
-      run: sudo apt-get install -y libssl-dev
-    - name: Install Reference tasecureapi Implementation
-      run: |
-        git clone https://github.com/rdkcentral/tasecureapi.git tasecureapi
-        cd tasecureapi
-        cmake -S reference -B reference/cmake-build
-        cmake --build reference/cmake-build
-        sudo cmake --install reference/cmake-build
-    - name: Config
-      run: >-
-        cmake
-        -S .
-        -B cmake-build
-    - name: Build
-      run: cmake --build cmake-build
-    - name: Install
-      run: sudo cmake --install cmake-build
+      - uses: actions/checkout@v4
+      - name: Install YAJL
+        run: sudo apt-get install -y libyajl-dev
+      - name: Install OpenSSL
+        run: sudo apt-get install -y libssl-dev
+      - name: Install Compiler Dependencies
+        run: sudo apt-get install ${{ matrix.packages }}
+      - name: Setup Compiler Env
+        run: |
+          echo "CC=${{ matrix.c_compiler }}" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.cxx_compiler }}" >> $GITHUB_ENV
+      - name: Install Reference tasecureapi Implementation
+        run: |
+          git clone https://github.com/rdkcentral/tasecureapi.git tasecureapi
+          cd tasecureapi
+          cmake -S reference -B reference/cmake-build
+          cmake --build reference/cmake-build
+          sudo cmake --install reference/cmake-build
+      - name: Config
+        run: >-
+          cmake
+          -S .
+          -B cmake-build
+      - name: Build
+        run: cmake --build cmake-build
+      - name: Install
+        run: sudo cmake --install cmake-build
+
+  ubuntu_2004_aarch64:
+    name: Build on ${{ matrix.name }}
+    runs-on: ubuntu22.04
+    strategy:
+      matrix:
+        include:
+          - name: Clang-10
+            packages: clang-10
+            c_compiler: clang-10
+            cxx_compiler: clang++-10
+
+          - name: Clang-11
+            packages: clang-11
+            c_compiler: clang-11
+            cxx_compiler: clang++-11
+
+          - name: Clang-12
+            packages: clang-12
+            c_compiler: clang-12
+            cxx_compiler: clang++-12
+
+          - name: GCC-8
+            packages: g++-8
+            c_compiler: gcc-8
+            cxx_compiler: g++-8
+
+          - name: GCC-9
+            packages: g++-9
+            c_compiler: gcc-9
+            cxx_compiler: g++-9
+
+          - name: GCC-10
+            packages: g++-10
+            c_compiler: gcc-10
+            cxx_compiler: g++-10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu20.04
+          githubToken: ${{ github.token }}
+          install: |
+            apt-get update -q -y
+            apt-get install -y libyajl-dev libssl-dev ${{ matrix.packages }}
+          run: |
+            export CC="${{ matrix.c_compiler }}"
+            export CXX="${{ matrix.cxx_compiler }}"
+            git clone https://github.com/rdkcentral/tasecureapi.git tasecureapi
+            cd tasecureapi
+            cmake -S reference -B reference/cmake-build
+            cmake --build reference/cmake-build
+            sudo cmake --install reference/cmake-build
+            cmake -S . -B cmake-build
+            cmake --build cmake-build
+            sudo cmake --install cmake-build
+
+  ubuntu_2204_x64:
+    name: Build on ${{ matrix.name }}
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - name: Clang-14
+            packages: clang-14
+            c_compiler: clang-14
+            cxx_compiler: clang++-14
+
+          - name: Clang-15
+            packages: clang-15
+            c_compiler: clang-15
+            cxx_compiler: clang++-15
+
+          - name: GCC-11
+            packages: g++-11
+            c_compiler: gcc-11
+            cxx_compiler: g++-11
+
+          - name: GCC-12
+            packages: g++-12
+            c_compiler: gcc-12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install YAJL
+        run: sudo apt-get install -y libyajl-dev
+      - name: Install OpenSSL
+        run: sudo apt-get install -y libssl-dev
+      - name: Install Compiler Dependencies
+        run: sudo apt-get install ${{ matrix.packages }}
+      - name: Setup Compiler Env
+        run: |
+          echo "CC=${{ matrix.c_compiler }}" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.cxx_compiler }}" >> $GITHUB_ENV
+      - name: Install Reference tasecureapi Implementation
+        run: |
+          git clone https://github.com/rdkcentral/tasecureapi.git tasecureapi
+          cd tasecureapi
+          cmake -S reference -B reference/cmake-build
+          cmake --build reference/cmake-build
+          sudo cmake --install reference/cmake-build
+      - name: Config
+        run: >-
+          cmake
+          -S .
+          -B cmake-build
+      - name: Build
+        run: cmake --build cmake-build
+      - name: Install
+        run: sudo cmake --install cmake-build
+
+  ubuntu_2204_aarch64:
+    name: Build on ${{ matrix.name }}
+    runs-on: ubuntu22.04
+    strategy:
+      matrix:
+        include:
+          - name: Clang-14
+            packages: clang-14
+            c_compiler: clang-14
+            cxx_compiler: clang++-14
+
+          - name: Clang-15
+            packages: clang-15
+            c_compiler: clang-15
+            cxx_compiler: clang++-15
+
+          - name: GCC-11
+            packages: g++-11
+            c_compiler: gcc-11
+            cxx_compiler: g++-11
+
+          - name: GCC-12
+            packages: g++-12
+            c_compiler: gcc-12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: uraimo/run-on-arch-action@v2
+        with:
+          arch: aarch64
+          distro: ubuntu22.04
+          githubToken: ${{ github.token }}
+          install: |
+            apt-get update -q -y
+            apt-get install -y libyajl-dev libssl-dev ${{ matrix.packages }}
+          run: |
+            export CC="${{ matrix.c_compiler }}"
+            export CXX="${{ matrix.cxx_compiler }}"
+            git clone https://github.com/rdkcentral/tasecureapi.git tasecureapi
+            cd tasecureapi
+            cmake -S reference -B reference/cmake-build
+            cmake --build reference/cmake-build
+            sudo cmake --install reference/cmake-build
+            cmake -S . -B cmake-build
+            cmake --build cmake-build
+            sudo cmake --install cmake-build
