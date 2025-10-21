@@ -123,7 +123,8 @@ static Sec_Result Sec_StoreBundleData(Sec_ProcessorHandle* processorHandle, SEC_
             return SEC_RESULT_FAILURE;
         }
 
-        SecBundle_Delete(processorHandle, object_id);
+        // Note: Previously SA2 would delete existing bundles.  However, its unnecessary, and caused issues on certain targets.
+        // SecBundle_Delete(processorHandle, object_id);
 
         char file_name_bundle[SEC_MAX_FILE_PATH_LEN];
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
