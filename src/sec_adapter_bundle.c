@@ -123,13 +123,6 @@ static Sec_Result Sec_StoreBundleData(Sec_ProcessorHandle* processorHandle, SEC_
             return SEC_RESULT_FAILURE;
         }
 
-        // Note: Previously SecApi2-Adapter would delete existing bundles, then re-write them.  In some instances, this would result in
-        //       data synchronization issues. The issue manifests as missing data when an existing bundle file is updated outside of the
-        //       container. This is due to the file system inode changing on writing a new file. Updating the existing file without
-        //       deleting the data prior to update maintains the inode and preserves the ability for the containerized application to
-        //       access the new data.
-        // SecBundle_Delete(processorHandle, object_id);
-
         char file_name_bundle[SEC_MAX_FILE_PATH_LEN];
         char file_name_verification[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name_bundle, sizeof(file_name_bundle), "%s" SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
