@@ -223,7 +223,11 @@ static Sec_Result Sec_StoreCertificateData(Sec_ProcessorHandle* processorHandle,
             return SEC_RESULT_FAILURE;
         }
 
-        // Note: Previously SA2 would delete existing certs.  However, its unnecessary, and caused issues on certain targets.
+        // Note: Previously SecApi2-Adapter would delete existing certificates, then re-write them.  In some instances, this would result in
+        //       data synchronization issues. The issue manifests as missing data when an existing bundle file is updated outside of the
+        //       container. This is due to the file system inode changing on writing a new file. Updating the existing file without
+        //       deleting the data prior to update maintains the inode and preserves the ability for the containerized application to
+        //       access the new data.
         // SecCertificate_Delete(processorHandle, object_id);
 
         char file_name_cert[SEC_MAX_FILE_PATH_LEN];
