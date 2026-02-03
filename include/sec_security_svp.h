@@ -28,6 +28,7 @@
 extern "C" {
 #endif
 
+#ifdef ENABLE_SVP
 typedef struct svp_processor_buffer_struct {
     Sec_ProcessorHandle* processorHandle;
     sa_svp_buffer svp_buffer;
@@ -52,6 +53,7 @@ Sec_Result SecOpaqueBuffer_CopyByIndex(Sec_OpaqueBufferHandle* outOpaqueBufferHa
 Sec_Result SecOpaqueBuffer_Create(Sec_OpaqueBufferHandle** opaqueBufferHandle, void* svp_memory, SEC_SIZE bufLength);
 sa_svp_buffer get_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle);
 void release_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle);
+#endif // ENABLE_SVP
 
 #ifdef __cplusplus
 }
