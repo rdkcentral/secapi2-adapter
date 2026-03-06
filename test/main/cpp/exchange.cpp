@@ -393,12 +393,12 @@ static Sec_Result hkdf(SEC_BYTE* key, SEC_SIZE key_len, SEC_BYTE* out, const SEC
         return SEC_RESULT_FAILURE;
     }
 
-#if OPENSSL_VERSION_NUMBER >= 0x30000000
-    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, reinterpret_cast<const unsigned char*>(use_salt ? "salt" : nullptr),
+    // OpenSSL 3.x OSSL_PARAM_construct_octet_string() rejects NULL data pointer
+    // even when length is 0, causing EVP_PKEY_CTX_set1_hkdf_salt() to fail.
+    // Pass "" instead of nullptr to satisfy the non-NULL check.
+    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx,
+                reinterpret_cast<const unsigned char*>(use_salt ? "salt" : ""),
                 use_salt ? 4 : 0) <= 0) {
-#else
-    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, use_salt ? "salt" : nullptr, use_salt ? 4 : 0) <= 0) {
-#endif
         EVP_PKEY_CTX_free(pctx);
         return SEC_RESULT_FAILURE;
     }
