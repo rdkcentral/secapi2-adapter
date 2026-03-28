@@ -411,6 +411,10 @@ Sec_Result SecCipher_ProcessFragmented(Sec_CipherHandle* cipherHandle, SEC_BYTE*
  */
 Sec_Result SecCipher_ProcessOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBufferHandle* inOpaqueBufferHandle,
         Sec_OpaqueBufferHandle* outOpaqueBufferHandle, SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_SIZE* bytesWritten) {
+#ifndef ENABLE_SVP
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+#else
     CHECK_HANDLE(cipherHandle)
     if (inOpaqueBufferHandle == NULL) {
         SEC_LOG_ERROR("Invalid inputHandle");
@@ -476,6 +480,7 @@ Sec_Result SecCipher_ProcessOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBuf
     }
 
     return SEC_RESULT_SUCCESS;
+#endif // ENABLE_SVP
 }
 
 Sec_Result SecCipher_ProcessCtrWithOpaqueDataShift(Sec_CipherHandle* cipherHandle,
@@ -495,7 +500,10 @@ Sec_Result SecCipher_ProcessCtrWithOpaqueDataShift(Sec_CipherHandle* cipherHandl
  */
 Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle,
         SEC_SIZE checkLength, SEC_BYTE* expected) {
-
+#ifndef ENABLE_SVP
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+#else
 #if MIN_SA_VERSION(3, 1, 2)
     return SEC_RESULT_UNIMPLEMENTED_FEATURE;
 #else
@@ -532,6 +540,7 @@ Sec_Result SecCipher_KeyCheckOpaque(Sec_CipherHandle* cipherHandle, Sec_OpaqueBu
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 #endif
+#endif // ENABLE_SVP
 }
 
 /**
@@ -910,7 +919,10 @@ SEC_BOOL SecCipher_IsDecrypt(Sec_CipherMode mode) {
 Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv, SEC_BYTE* input,
         SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength,
         Sec_OpaqueBufferHandle** opaqueBufferHandle, SEC_SIZE* bytesWritten) {
-
+#ifndef ENABLE_SVP
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+#else
     if (cipherHandle == NULL) {
         SEC_LOG_ERROR("NULL cipherHandle");
         return SEC_RESULT_FAILURE;
@@ -1000,12 +1012,16 @@ Sec_Result SecCipher_ProcessOpaqueWithMap(Sec_CipherHandle* cipherHandle, SEC_BY
 
     *bytesWritten = out_buffer.context.svp.offset;
     return SEC_RESULT_SUCCESS;
+#endif // ENABLE_SVP
 }
 
 Sec_Result SecCipher_ProcessOpaqueWithMapAndPattern(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv, SEC_BYTE* input,
         SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength, SEC_SIZE numEncryptedBlocks,
         SEC_SIZE numClearBlocks, Sec_OpaqueBufferHandle** opaqueBufferHandle, SEC_SIZE* bytesWritten) {
-
+#ifndef ENABLE_SVP
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+#else
     if (cipherHandle == NULL) {
         SEC_LOG_ERROR("NULL cipherHandle");
         return SEC_RESULT_FAILURE;
@@ -1094,11 +1110,15 @@ Sec_Result SecCipher_ProcessOpaqueWithMapAndPattern(Sec_CipherHandle* cipherHand
 
     *bytesWritten = out_buffer.context.svp.offset;
     return SEC_RESULT_SUCCESS;
+#endif // ENABLE_SVP
 }
 
 Sec_Result SecCipher_ProcessOpaqueWithMapAndHandle(Sec_CipherHandle* cipherHandle, SEC_BYTE* iv, uint32_t secureBufferHandle,
         SEC_BYTE* input, SEC_SIZE inputSize, SEC_BOOL lastInput, SEC_MAP* map, SEC_SIZE mapLength, SEC_SIZE* bytesWritten) {
-
+#ifndef ENABLE_SVP
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+#else
     if (cipherHandle == NULL) {
         SEC_LOG_ERROR("NULL cipherHandle");
         return SEC_RESULT_FAILURE;
@@ -1199,6 +1219,7 @@ Sec_Result SecCipher_ProcessOpaqueWithMapAndHandle(Sec_CipherHandle* cipherHandl
 
     *bytesWritten = out_buffer.context.svp.offset;
     return SEC_RESULT_SUCCESS;
+#endif // ENABLE_SVP
 }
 
 Sec_Result get_cipher_algorithm(const Sec_CipherAlgorithm algorithm, SEC_BOOL is_unwrap,

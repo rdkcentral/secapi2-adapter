@@ -17,6 +17,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(sec_api_2_adapter C CXX)
 
+option(ENABLE_SVP                          "Enable SVP (Secure Video Path) support" ON)
 option(ENABLE_SOC_PROVISION_WIDEVINE       "Enable Widevine Provisioning" OFF)
 option(ENABLE_SOC_PROVISION_PLAYREADY_2K   "Enable PlayReady Model 2K Provisioning" OFF)
 option(ENABLE_SOC_PROVISION_PLAYREADY_3K   "Enable PlayReady Model 3K Provisioning" OFF)
@@ -47,6 +48,13 @@ if (DEFINED ENABLE_CLANG_TIDY)
 else()
     message("clang-tidy disabled")
 endif ()
+
+if (ENABLE_SVP)
+    set(CMAKE_CXX_FLAGS "-DENABLE_SVP ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-DENABLE_SVP ${CMAKE_C_FLAGS}")
+else()
+    message(STATUS "ENABLE_SVP is OFF: Building without SVP support")
+endif()
 
 if (DEFINED ENABLE_SOC_KEY_TESTS)
     set(CMAKE_CXX_FLAGS "-DENABLE_SOC_KEY_TESTS ${CMAKE_CXX_FLAGS}")
