@@ -163,6 +163,12 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return SEC_RESULT_FAILURE;
     }
 
+    // Register handle in global list before any sa_invoke calls during init
+    pthread_mutex_lock(&mutex);
+    newProcessorHandle->nextHandle = processorHandleList;
+    processorHandleList = newProcessorHandle;
+    pthread_mutex_unlock(&mutex);
+
     /* generate sec store proc ins */
     result = SecStore_GenerateLadderInputs(newProcessorHandle, SEC_STORE_AES_LADDER_INPUT, NULL,
             (SEC_BYTE*) &derived_inputs, sizeof(derived_inputs));
@@ -238,10 +244,6 @@ Sec_Result SecProcessor_GetInstance_Directories(Sec_ProcessorHandle** processorH
         return result;
     }
 
-    pthread_mutex_lock(&mutex);
-    newProcessorHandle->nextHandle = processorHandleList;
-    processorHandleList = newProcessorHandle;
-    pthread_mutex_unlock(&mutex);
     *processorHandle = newProcessorHandle;
     return SEC_RESULT_SUCCESS;
 }
@@ -640,12 +642,33 @@ sa_status sa_invoke(Sec_ProcessorHandle* processorHandle, SA_COMMAND_ID command_
     if (processorHandle == NULL)
         return SA_STATUS_INVALID_PARAMETER;
 
+    // Validate processorHandle is still in the global list before locking
+    pthread_mutex_lock(&mutex);
+    Sec_ProcessorHandle* tempHandle = processorHandleList;
+    bool handle_found = false;
+    while (tempHandle != NULL) {
+        if (tempHandle == processorHandle) {
+            handle_found = true;
+            break;
+        }
+        tempHandle = tempHandle->nextHandle;
+    }
+
+    if (!handle_found) {
+        pthread_mutex_unlock(&mutex);
+        SEC_LOG_ERROR("Use after processor handle free detected %u", command_id);
+        return SA_STATUS_INVALID_PARAMETER;
+    }
+
+    // Now safely lock the processor mutex while still holding global mutex
+    pthread_mutex_lock(&processorHandle->mutex);
+    pthread_mutex_unlock(&mutex);
+
     va_list va_args;
     va_start(va_args, command_id);
     sa_command command = {command_id, &va_args, -1};
 
     bool command_queued = false;
-    pthread_mutex_lock(&processorHandle->mutex);
     while (!processorHandle->shutdown && command.result == -1) {
         if (processorHandle->queue_size < MAX_QUEUE_SIZE && !command_queued) {
             processorHandle->queue[(processorHandle->queue_front + processorHandle->queue_size) % MAX_QUEUE_SIZE] =
