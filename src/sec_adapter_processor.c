@@ -359,6 +359,7 @@ Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
     if (processorHandle == NULL)
         return SEC_RESULT_INVALID_HANDLE;
 
+    pthread_mutex_lock(&mutex);
     Sec_ProcessorHandle* tempHandle = processorHandleList;
     Sec_ProcessorHandle* parentHandle = NULL;
     while (tempHandle != NULL && tempHandle != processorHandle) {
@@ -367,11 +368,11 @@ Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
     }
 
     if (tempHandle != processorHandle) {
+        pthread_mutex_unlock(&mutex);
         SEC_LOG_ERROR("Attempting to free a handle that has already been freed");
         return SEC_RESULT_INVALID_HANDLE;
     }
 
-    pthread_mutex_lock(&mutex);
     if (parentHandle == NULL)
         processorHandleList = tempHandle->nextHandle;
     else

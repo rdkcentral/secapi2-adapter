@@ -149,7 +149,6 @@ Sec_Result testProcessorUseAfterFree() {
     }
 
     // Attempt to use the freed handle - sa_invoke should detect this and return failure
-    Sec_KeyHandle* keyHandle = nullptr;
     Sec_Result result = SecKey_Generate(dangling, SEC_OBJECTID_USER_BASE, SEC_KEYTYPE_AES_128,
             SEC_STORAGELOC_RAM);
     if (result == SEC_RESULT_SUCCESS) {
