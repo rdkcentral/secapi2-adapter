@@ -21,7 +21,7 @@ jobs:
       run: |
         git clone https://github.com/rdkcentral/tasecureapi.git tasecureapi
         cd tasecureapi
-        cmake -S reference -B reference/cmake-build
+        cmake -S reference -B reference/cmake-build -DENABLE_SVP=ON
         cmake --build reference/cmake-build
         sudo cmake --install reference/cmake-build
     - name: Config
@@ -29,6 +29,8 @@ jobs:
         cmake
         -S .
         -B cmake-build
+        -DCMAKE_C_FLAGS="-DENABLE_SVP=1"
+        -DCMAKE_CXX_FLAGS="-DENABLE_SVP=1"
     - name: Build
       run: cmake --build cmake-build
     - name: Install
