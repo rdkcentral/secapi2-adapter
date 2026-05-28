@@ -29,6 +29,8 @@ jobs:
         cmake
         -S .
         -B cmake-build
+        -DCMAKE_C_FLAGS="-DENABLE_SVP=1"
+        -DCMAKE_CXX_FLAGS="-DENABLE_SVP=1"
     - name: Build
       run: cmake --build cmake-build
     - name: Install

@@ -132,3 +132,29 @@ Sec_Result testProcessorInitReleaseInit() {
 
     return SEC_RESULT_SUCCESS;
 }
+
+Sec_Result testProcessorUseAfterFree() {
+    Sec_ProcessorHandle* proc = nullptr;
+    if (SecProcessor_GetInstance_Directories(&proc, nullptr, nullptr) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecProcessor_GetInstance_Directories failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Save the handle pointer before releasing
+    Sec_ProcessorHandle* dangling = proc;
+
+    if (SecProcessor_Release(proc) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecProcessor_Release failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Attempt to use the freed handle - sa_invoke should detect this and return failure
+    Sec_Result result = SecKey_Generate(dangling, SEC_OBJECTID_USER_BASE, SEC_KEYTYPE_AES_128,
+            SEC_STORAGELOC_RAM);
+    if (result == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Generate should have failed on a freed handle");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}

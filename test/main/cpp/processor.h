@@ -33,4 +33,6 @@ Sec_Result testProcessorGetInfo();
 
 Sec_Result testProcessorInitReleaseInit();
 
+Sec_Result testProcessorUseAfterFree();
+
 #endif // PROCESSOR_H
