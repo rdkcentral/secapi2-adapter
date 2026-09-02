@@ -19,7 +19,6 @@
 #ifndef SEC_SECURITY_H_
 #define SEC_SECURITY_H_
 
-#include "sa_types.h"
 #include "sec_security_common.h"
 #include "sec_security_datatype.h"
 #if !defined(SEC_TARGET_IOS) && !defined(SEC_TARGET_TVOS)
