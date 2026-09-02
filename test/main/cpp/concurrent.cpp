@@ -1,5 +1,5 @@
 /**
- * Copyright 2020 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2026 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ struct RsaArgs {
     TestKc kc;
 
     Sec_Result result;
-} __attribute__((aligned(32)));
+};
 
 void* concurrent_rsa(void* arg) {
     auto* args = static_cast<RsaArgs*>(arg);
