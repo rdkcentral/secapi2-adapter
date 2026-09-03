@@ -23,15 +23,16 @@
 #include "sec_security_utils.h"
 #include "sign.h"
 #include "test_ctx.h"
+#include <cstdint>
 #include <ctime>
 #include <string>
 
 // Returns an ISO 8601 date/time string roughly N years from now, e.g. "2036-03-06T12:34:56Z".
 // Used for test key validity so tests don't fail due to expired hardcoded dates.
 static std::string futureDate(int yearsFromNow) {
-    constexpr time_t SECONDS_PER_YEAR = 365LL * 24 * 60 * 60;
-    const time_t now = time(nullptr);
-    const time_t future = now + static_cast<time_t>(yearsFromNow) * SECONDS_PER_YEAR;
+    // Computed in int64_t so the offset cannot overflow a 32-bit time_t.
+    constexpr int64_t SECONDS_PER_YEAR = 365LL * 24 * 60 * 60;
+    const int64_t future = static_cast<int64_t>(time(nullptr)) + yearsFromNow * SECONDS_PER_YEAR;
 
     char buf[32];
     SecUtils_Epoch2IsoTime(static_cast<SEC_SIZE>(future), buf, sizeof(buf));
