@@ -314,7 +314,7 @@ Sec_Result SecUtils_MkDir(const char* path) {
         if (*p == '/') {
             *p = 0;
             if (mkdir(tmp, S_IRWXU) != 0 && errno != EEXIST) {
-                SEC_LOG_ERROR("Warning Mkdir %s failed", tmp);
+                SEC_LOG("Warning: Mkdir %s failed", tmp);
                 //return SEC_RESULT_FAILURE;
             }
 
@@ -323,7 +323,7 @@ Sec_Result SecUtils_MkDir(const char* path) {
     }
 
     if (mkdir(tmp, S_IRWXU) != 0 && errno != EEXIST) {
-        SEC_LOG_ERROR("Warning Mkdir %s failed", tmp);
+        SEC_LOG("Warning: Mkdir %s failed", tmp);
         //return SEC_RESULT_FAILURE;
     }
 
