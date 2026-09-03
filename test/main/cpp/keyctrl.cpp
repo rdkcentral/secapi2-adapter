@@ -26,7 +26,7 @@
 #include <ctime>
 #include <string>
 
-// Returns an ISO 8601 date string roughly N years from now, e.g. "2036-03-06T00:00:00Z".
+// Returns an ISO 8601 date/time string roughly N years from now, e.g. "2036-03-06T12:34:56Z".
 // Used for test key validity so tests don't fail due to expired hardcoded dates.
 static std::string futureDate(int yearsFromNow) {
     constexpr time_t SECONDS_PER_YEAR = 365LL * 24 * 60 * 60;
