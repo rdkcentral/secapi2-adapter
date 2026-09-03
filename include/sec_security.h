@@ -122,6 +122,16 @@ extern "C" {
         SEC_LOG("ERROR: " txt, ##__VA_ARGS__); \
     } while (0)
 
+#define SEC_LOG_WARNING(txt, ...) \
+    do { \
+        SEC_LOG("WARNING: " txt, ##__VA_ARGS__); \
+    } while (0)
+
+#define SEC_LOG_INFO(txt, ...) \
+    do { \
+        SEC_LOG("INFO: " txt, ##__VA_ARGS__); \
+    } while (0)
+
 #define SEC_TRACE(enabled, txt, ...) \
     do { \
         if (enabled) { \
