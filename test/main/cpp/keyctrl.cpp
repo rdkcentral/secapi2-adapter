@@ -1,5 +1,5 @@
 /**
- * Copyright 2020-2023 Comcast Cable Communications Management, LLC
+ * Copyright 2020-2026 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,21 @@
 #include "sec_security_utils.h"
 #include "sign.h"
 #include "test_ctx.h"
+#include <cstdint>
+#include <ctime>
+#include <string>
+
+// Returns an ISO 8601 date/time string roughly N years from now, e.g. "2036-03-06T12:34:56Z".
+// Used for test key validity so tests don't fail due to expired hardcoded dates.
+static std::string futureDate(int yearsFromNow) {
+    // Computed in int64_t so the offset cannot overflow a 32-bit time_t.
+    constexpr int64_t SECONDS_PER_YEAR = 365LL * 24 * 60 * 60;
+    const int64_t future = static_cast<int64_t>(time(nullptr)) + yearsFromNow * SECONDS_PER_YEAR;
+
+    char buf[32];
+    SecUtils_Epoch2IsoTime(static_cast<SEC_SIZE>(future), buf, sizeof(buf));
+    return buf;
+}
 
 #define BUFFER_SIZE 4096
 
@@ -168,7 +183,7 @@ Sec_Result testKeyCtrlKeyOnlyUsage(int version, const char* alg) {
         std::string jtype = createJTypeContainer("1WXQ46EYW65SENER", "HS256", g_default_jtype_data.contentKey,
                 g_default_jtype_data.encryptionKey, "9c621060-3a17-4813-8dcb-2e9187aaa903",
                 createDefaultRights(SEC_KEYTYPE_AES_128).c_str(), SEC_FALSE, SEC_KEYUSAGE_KEY, "2010-12-09T19:53:06Z",
-                "2025-12-09T01:02:03Z", g_default_jtype_data.macKey, version, alg);
+                futureDate(10).c_str(), g_default_jtype_data.macKey, version, alg);
 
         if (jtype.empty()) {
             SEC_LOG_ERROR("CreateJTypeContainer failed");
@@ -214,7 +229,7 @@ Sec_Result testKeyCtrlUnwrapWithKeyUsage(int version, const char* alg, TestKey c
     std::string jtype = createJTypeContainer("1WXQ46EYW65SENER", "HS256", contentKey,
             g_default_jtype_data.encryptionKey, "9c621060-3a17-4813-8dcb-2e9187aaa903",
             createDefaultRights(TestCreds::getKeyType(contentKey)).c_str(), SEC_FALSE, SEC_KEYUSAGE_KEY,
-            "2010-12-09T19:53:06Z", "2025-12-09T01:02:03Z", g_default_jtype_data.macKey, version, alg);
+            "2010-12-09T19:53:06Z", futureDate(10).c_str(), g_default_jtype_data.macKey, version, alg);
 
     if (jtype.empty()) {
         SEC_LOG_ERROR("CreateJTypeContainer failed");
@@ -298,7 +313,7 @@ Sec_Result testKeyCtrlUnwrapWithDataUsage(int version, const char* alg) {
         jtype = createJTypeContainer("1WXQ46EYW65SENER", "HS256", g_default_jtype_data.contentKey,
                 g_default_jtype_data.encryptionKey, "9c621060-3a17-4813-8dcb-2e9187aaa903",
                 createDefaultRights(SEC_KEYTYPE_AES_128).c_str(), SEC_TRUE, SEC_KEYUSAGE_DATA, "2010-12-09T19:53:06Z",
-                "2025-12-09T01:02:03Z", g_default_jtype_data.macKey, version, alg);
+                futureDate(10).c_str(), g_default_jtype_data.macKey, version, alg);
         if (jtype.empty()) {
             SEC_LOG_ERROR("CreateJTypeContainer failed");
             return SEC_RESULT_FAILURE;
@@ -529,7 +544,8 @@ Sec_Result testKeyCtrlExpectedJTypeProperties(int version, const char* alg, Test
     TestCtx ctx;
     Sec_KeyHandle* keyHandle = nullptr;
     SEC_BYTE iv[SEC_AES_BLOCK_SIZE] = {0x01};
-    const char* notOnOrAfter = "2025-12-09T19:53:06Z";
+    std::string notOnOrAfterStr = futureDate(10);
+    const char* notOnOrAfter = notOnOrAfterStr.c_str();
     const char* notBefore = "2010-12-09T19:53:06Z";
     const char* keyId = "9c621060-3a17-4813-8dcb-2e9187aaa903";
     Sec_KeyProperties keyProps;
@@ -929,7 +945,8 @@ Sec_Result testKeyCtrlExpectedExportedProperties(int version, const char* alg, T
     std::string b64rights;
     Sec_KeyHandle* keyHandle = nullptr;
     SEC_BYTE iv[SEC_AES_BLOCK_SIZE] = {0x01};
-    const char* notOnOrAfter = "2025-12-09T19:53:06Z";
+    std::string notOnOrAfterStr = futureDate(10);
+    const char* notOnOrAfter = notOnOrAfterStr.c_str();
     const char* notBefore = "2010-12-09T19:53:06Z";
     const char* keyId = "9c621060-3a17-4813-8dcb-2e9187aaa903";
     Sec_KeyProperties keyProps;
@@ -1038,7 +1055,8 @@ Sec_Result testKeyCtrlExportProvisionExport(int version, const char* alg, TestKe
     std::string b64rights;
     Sec_KeyHandle* keyHandle = nullptr;
     SEC_BYTE iv[SEC_AES_BLOCK_SIZE] = {0x01};
-    const char* notOnOrAfter = "2025-12-09T19:53:06Z";
+    std::string notOnOrAfterStr = futureDate(10);
+    const char* notOnOrAfter = notOnOrAfterStr.c_str();
     const char* notBefore = "2010-12-09T19:53:06Z";
     const char* keyId = "9c621060-3a17-4813-8dcb-2e9187aaa903";
     Sec_KeyProperties keyProps;
@@ -1170,7 +1188,8 @@ Sec_Result testKeyCtrlKeyExportGetSize(int version, const char* alg) {
     std::string b64rights;
     Sec_KeyHandle* keyHandle = nullptr;
     SEC_BYTE iv[SEC_AES_BLOCK_SIZE] = {0x01};
-    const char* notOnOrAfter = "2025-12-09T19:53:06Z";
+    std::string notOnOrAfterStr = futureDate(10);
+    const char* notOnOrAfter = notOnOrAfterStr.c_str();
     const char* notBefore = "2010-12-09T19:53:06Z";
     const char* keyId = "9c621060-3a17-4813-8dcb-2e9187aaa903";
     Sec_KeyProperties keyProps;
