@@ -380,8 +380,10 @@ Sec_Result SecProcessor_Release(Sec_ProcessorHandle* processorHandle) {
 
     pthread_mutex_unlock(&mutex);
 
+#ifdef ENABLE_SVP
     while (processorHandle->opaque_buffer_handle != NULL)
         release_svp_buffer(processorHandle, processorHandle->opaque_buffer_handle->opaqueBufferHandle);
+#endif // ENABLE_SVP
 
     /* release ram keys */
     while (processorHandle->ram_keys != NULL)
@@ -582,6 +584,7 @@ void sa_process_command(sa_command* command) {
                     va_arg(*command->arguments, void*));
             break;
 
+#ifdef ENABLE_SVP
         case SA_SVP_BUFFER_CREATE:
             command->result = sa_svp_buffer_create(va_arg(*command->arguments, sa_svp_buffer*),
                     va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
@@ -620,6 +623,7 @@ void sa_process_command(sa_command* command) {
                     va_arg(*command->arguments, sa_digest_algorithm), va_arg(*command->arguments, void*),
                     va_arg(*command->arguments, size_t));
             break;
+#endif // ENABLE_SVP
 
         case SA_PROCESS_COMMON_ENCRYPTION:
             command->result = sa_process_common_encryption(va_arg(*command->arguments, size_t),
