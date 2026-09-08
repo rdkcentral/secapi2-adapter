@@ -574,14 +574,14 @@ Sec_Result SecSocProv_Ta_Provision(Sec_ProcessorHandle* processorHandle, sa_key_
 
     case APPLE_MFI_SOC_PROVISIONING:
 #if ENABLE_SOC_PROVISION_APPLE_MFI
-        SEC_LOG("Handling Apple MFI provisioning");
+        SEC_LOG("Handling Apple MFi provisioning");
         status = provisioning_ta(processorHandle, APPLE_MFI_OBJ, APPLE_MFI_SOC_PROVISIONING, sizeof(AppleMfiProvisioning));
 #endif
         break;
 
     case APPLE_FAIRPLAY_SOC_PROVISIONING:
 #if ENABLE_SOC_PROVISION_APPLE_FAIRPLAY
-        SEC_LOG("Handling Apple FairPlay provisioning");
+        SEC_LOG("Handling Apple Fairplay provisioning");
         status = provisioning_ta(processorHandle, APPLE_FAIR_PLAY_OBJ, APPLE_FAIRPLAY_SOC_PROVISIONING, sizeof(AppleFairPlayProvisioning));
 #endif
         break;
@@ -601,12 +601,13 @@ Sec_Result SecSocProv_Ta_Provision(Sec_ProcessorHandle* processorHandle, sa_key_
 }
 
 
-bool provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths, sa_key_type_soc_ta provisioningType, size_t dataSize) {
+Sec_Result provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths, sa_key_type_soc_ta provisioningType,
+        size_t dataSize) {
     sa_status status;
     sa_import_parameters_soc* parameters = (sa_import_parameters_soc*)malloc(sizeof(sa_import_parameters_soc));
     if (!parameters) {
         SEC_LOG_ERROR("Failed to allocate memory");
-        return false;
+        return SEC_RESULT_FAILURE;
     }
     parameters->length[0] = (sizeof(sa_import_parameters_soc) >> 8) & 0xff;
 
@@ -620,13 +621,14 @@ bool provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths, sa_k
         WidevineOemProvisioning* provisioningData = NULL;
         if (readWidevineData(processorHandle, &provisioningData) == false) {
             SEC_LOG_ERROR("Failed to read widevine provisioning data");
+            SEC_FREE(parameters);
             return SEC_RESULT_FAILURE;
         }
         status = sa_key_provision_ta(WIDEVINE_OEM_PROVISIONING, provisioningData, dataSize, parameters);
         SEC_FREE(provisioningData);
         SEC_FREE(parameters);
         if (status != SA_STATUS_OK) {
-            SEC_LOG_ERROR("Falied sa_key_provision_ta call in widevine");
+            SEC_LOG_ERROR("Failed sa_key_provision_ta call in widevine");
             return SEC_RESULT_FAILURE;
         }
         SEC_LOG("Widevine provisioning completed successfully");
@@ -636,13 +638,14 @@ bool provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths, sa_k
         PlayReadyProvisioning* playReadyprovisioning2kData = NULL;
         if (readPlayReadyData(processorHandle, &playReadyprovisioning2kData, PLAYREADY_MODEL_2K) == false) {
             SEC_LOG_ERROR("Failed to read PlayReady 2k provisioning data");
+            SEC_FREE(parameters);
             return SEC_RESULT_FAILURE;
         }
         status = sa_key_provision_ta(PLAYREADY_MODEL_PROVISIONING, playReadyprovisioning2kData, dataSize, parameters);
         SEC_FREE(playReadyprovisioning2kData);
         SEC_FREE(parameters);
         if (status != SA_STATUS_OK) {
-            SEC_LOG_ERROR("Falied sa_key_provision_ta call in playready 2k");
+            SEC_LOG_ERROR("Failed sa_key_provision_ta call in playready 2k");
             return SEC_RESULT_FAILURE;
         }
         SEC_LOG("PlayReady Model 2K provisioning completed successfully");
@@ -652,13 +655,14 @@ bool provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths, sa_k
         PlayReadyProvisioning* playReadyprovisioning3kData = NULL;
         if (readPlayReadyData(processorHandle, &playReadyprovisioning3kData, PLAYREADY_MODEL_3K) == false) {
             SEC_LOG_ERROR("Failed to read PlayReady 3k provisioning data");
+            SEC_FREE(parameters);
             return SEC_RESULT_FAILURE;
         }
         status = sa_key_provision_ta(PLAYREADY_MODEL_PROVISIONING, playReadyprovisioning3kData, dataSize, parameters);
         SEC_FREE(playReadyprovisioning3kData);
         SEC_FREE(parameters);
         if (status != SA_STATUS_OK) {
-            SEC_LOG_ERROR("Falied sa_key_provision_ta call in playready 3k");
+            SEC_LOG_ERROR("Failed sa_key_provision_ta call in playready 3k");
             return SEC_RESULT_FAILURE;
         }
         SEC_LOG("PlayReady Model 3K provisioning completed successfully");
@@ -667,40 +671,42 @@ bool provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths, sa_k
     case APPLE_MFI_SOC_PROVISIONING:
         AppleMfiProvisioning* appleMfiprovisioningData = NULL;
         if (readAppleMfiData(processorHandle, &appleMfiprovisioningData) == false) {
-            SEC_LOG_ERROR("Failed to read ApplaMFI provisioning data");
+            SEC_LOG_ERROR("Failed to read Apple MFi provisioning data");
+            SEC_FREE(parameters);
             return SEC_RESULT_FAILURE;
         }
         status = sa_key_provision_ta(APPLE_MFI_PROVISIONING, appleMfiprovisioningData, dataSize, parameters);
         SEC_FREE(appleMfiprovisioningData);
         SEC_FREE(parameters);
         if (status != SA_STATUS_OK) {
-            SEC_LOG_ERROR("Failed to call sa_key_provision_ta in Apple_Mfi");
+            SEC_LOG_ERROR("Failed to call sa_key_provision_ta in Apple MFi");
             return SEC_RESULT_FAILURE;
         }
-        SEC_LOG("Apple_Mfi provisioning completed successfully");
+        SEC_LOG("Apple MFi provisioning completed successfully");
         break;
 
     case APPLE_FAIRPLAY_SOC_PROVISIONING:
         AppleFairPlayProvisioning* appleFairplayProvisioningData = NULL;
         if (readAppleFairPlayData(processorHandle, &appleFairplayProvisioningData) == false) {
-            SEC_LOG_ERROR("Failed to read ApplyFairplay provisioning data");
+            SEC_LOG_ERROR("Failed to read Apple Fairplay provisioning data");
+            SEC_FREE(parameters);
             return SEC_RESULT_FAILURE;
         }
         status = sa_key_provision_ta(APPLE_FAIRPLAY_PROVISIONING, appleFairplayProvisioningData, dataSize, parameters);
         SEC_FREE(appleFairplayProvisioningData);
         SEC_FREE(parameters);
         if (status != SA_STATUS_OK) {
-            SEC_LOG_ERROR("Failed to call sa_key_provision_ta in AppleFairplay");
+            SEC_LOG_ERROR("Failed to call sa_key_provision_ta in Apple Fairplay");
             return SEC_RESULT_FAILURE;
         }
-        SEC_LOG("AppleFairplay provisioning completed successfully");
+        SEC_LOG("Apple Fairplay provisioning completed successfully");
         break;
 
     case NETFLIX_SOC_PROVISIONING:
-        SEC_LOG("Handling Netflix provisioning");
         NetflixProvisioning* netflixProvisioningData = NULL;
         if (readNetflixData(processorHandle, &netflixProvisioningData) == false) {
             SEC_LOG_ERROR("Failed to read Netflix provisioning data");
+            SEC_FREE(parameters);
             return SEC_RESULT_FAILURE;
         }
         status = sa_key_provision_ta(NETFLIX_PROVISIONING, netflixProvisioningData, dataSize, parameters);

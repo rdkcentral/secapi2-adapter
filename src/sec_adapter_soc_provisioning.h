@@ -116,9 +116,10 @@ Sec_Result store_raw_data(Sec_ProcessorHandle* processorHandle, Sec_StorageLoc l
  * @param numPaths The number of paths for provisioning.
  * @param provisioningType The type of provisioning to be used.
  * @param dataSize The size of the data associated with the provisioning.
- * @return true if successful, false otherwise.
+ * @return Result of the operation.
  */
-bool provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths,sa_key_type_soc_ta provisioningType, size_t dataSize);
+Sec_Result provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths, sa_key_type_soc_ta provisioningType,
+        size_t dataSize);
 
 /**
  * @brief Initiates provisioning using a trusted application key type.
