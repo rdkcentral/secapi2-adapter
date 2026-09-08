@@ -581,7 +581,7 @@ Sec_Result SecSocProv_Ta_Provision(Sec_ProcessorHandle* processorHandle, sa_key_
 
     case APPLE_FAIRPLAY_SOC_PROVISIONING:
 #if ENABLE_SOC_PROVISION_APPLE_FAIRPLAY
-        SEC_LOG("Handling Apple Fairplay provisioning");
+        SEC_LOG("Handling Apple FairPlay provisioning");
         status = provisioning_ta(processorHandle, APPLE_FAIR_PLAY_OBJ, APPLE_FAIRPLAY_SOC_PROVISIONING, sizeof(AppleFairPlayProvisioning));
 #endif
         break;
