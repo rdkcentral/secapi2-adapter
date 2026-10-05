@@ -16,4 +16,4 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define SEC_API_VERSION "2.4.4.0"
+#define SEC_API_VERSION "2.4.5.0"
