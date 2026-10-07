@@ -211,6 +211,10 @@ Sec_Result TestCreds::preprovisionSoc(TestCtx* ctx) {
 
 bool TestCreds::supports(Capability cap) {
     //return whether a specific capability is supported in the target soc
+#ifndef ENABLE_SVP
+    if (cap == CAPABILITY_SVP)
+        return false;
+#endif
 #ifdef ENABLE_SOC_KEY_TESTS
     return cap != CAPABILITY_HKDF_CMAC;
 #else

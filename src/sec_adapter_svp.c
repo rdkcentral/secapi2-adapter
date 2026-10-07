@@ -16,8 +16,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "sa_svp.h"
 #include "sec_security_svp.h" // NOLINT
+
+#ifdef ENABLE_SVP
+#include "sa_svp.h"
 
 sa_svp_buffer get_svp_buffer(Sec_ProcessorHandle* processorHandle, Sec_OpaqueBufferHandle* opaqueBufferHandle) {
     if (processorHandle == NULL || opaqueBufferHandle == NULL)
@@ -376,3 +378,61 @@ Sec_Result SecOpaqueBuffer_CopyByIndex(Sec_OpaqueBufferHandle* outOpaqueBufferHa
     CHECK_STATUS(status)
     return SEC_RESULT_SUCCESS;
 }
+
+#else // ENABLE_SVP
+
+// Stub implementations when SVP is disabled
+
+// Deprecated
+Sec_Result Sec_OpaqueBufferMalloc(SEC_SIZE bufLength, void** handle, void* params) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecOpaqueBuffer_Malloc(SEC_SIZE bufLength, Sec_OpaqueBufferHandle** opaqueBufferHandle) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result Sec_OpaqueBufferWrite(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC_SIZE offset, void* data,
+        SEC_SIZE length) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecOpaqueBuffer_Write(Sec_OpaqueBufferHandle* opaqueBufferHandle, SEC_SIZE offset, SEC_BYTE* data,
+        SEC_SIZE length) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result Sec_OpaqueBufferFree(Sec_OpaqueBufferHandle* opaqueBufferHandle, void* params) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecOpaqueBuffer_Free(Sec_OpaqueBufferHandle* opaqueBufferHandle) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecOpaqueBuffer_Copy(Sec_OpaqueBufferHandle* outOpaqueBufferHandle, SEC_SIZE out_offset,
+        Sec_OpaqueBufferHandle* inOpaqueBufferHandle, SEC_SIZE in_offset, SEC_SIZE num_to_copy) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecOpaqueBuffer_Release(Sec_OpaqueBufferHandle* opaqueBufferHandle, Sec_ProtectedMemHandle** svpHandle) {
+    SEC_LOG_ERROR("SVP not supported");
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecCodeIntegrity_SecureBootEnabled(void) {
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+Sec_Result SecSVP_SetTime(time_t time) {
+    return SEC_RESULT_UNIMPLEMENTED_FEATURE;
+}
+
+#endif // ENABLE_SVP
