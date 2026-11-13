@@ -35,6 +35,10 @@ Sec_Result testKeyGetKeyInfo(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_Storag
 
 Sec_Result testKeyNoSha(SEC_OBJECTID id, TestKey key, TestKc kc);
 
+#if ENABLE_SOC_PROVISION_WIDEVINE
+Sec_Result testKeyProvisionSocKeepsExportedAndRaw();
+#endif
+
 Sec_Result testKeyExtractPublicKey(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc);
 
 Sec_Result testKeyGenerate(SEC_OBJECTID id, Sec_KeyType keyType, Sec_StorageLoc loc, bool testEncDec);

@@ -611,17 +611,6 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
         SEC_LOG_ERROR("Key data is too long");
         return SEC_RESULT_FAILURE;
     }
-    /*
-     * Check for Specific Object_id and Store in the memory to Process SoC vendor-specific provisioning
-     */
-    if (SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS) {
-       if (store_raw_data(processorHandle, location, object_id, data, data_length) == SEC_RESULT_FAILURE) { 
-           SEC_LOG_ERROR("Failed store_raw_data in SecKey_Provision");
-           return SEC_RESULT_FAILURE;
-       }
-       return SEC_RESULT_SUCCESS;
-    }
-
     Sec_Key key;
     Sec_KeyContainer key_container;
     SEC_SIZE key_length = SEC_KEYCONTAINER_MAX_LEN;
@@ -639,6 +628,18 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
                 key_length);
 
     SEC_FREE(key_buffer);
+
+    /*
+     * SoC vendor-specific keys are kept in two forms: the exported <id>.key (so older builds still work after a
+     * rollback) and the raw <id>_raw.key consumed by TA provisioning. The raw copy is written last so its presence
+     * means both copies were stored successfully.
+     */
+    if (result == SEC_RESULT_SUCCESS && SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS) {
+        result = store_raw_data(processorHandle, location, object_id, data, data_length);
+        if (result != SEC_RESULT_SUCCESS)
+            SEC_LOG_ERROR("Failed store_raw_data in SecKey_Provision");
+    }
+
     return result;
 }
 
@@ -1203,6 +1204,12 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
             if (!SecUtils_FileExists(file_name))
                 ++keys_deleted;
         }
+
+        char file_name_raw[SEC_MAX_FILE_PATH_LEN];
+        snprintf(file_name_raw, sizeof(file_name_raw), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
+                object_id);
+        if (SecUtils_FileExists(file_name_raw))
+            SecUtils_RmFile(file_name_raw);
 
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN, processorHandle->app_dir,
