@@ -1208,8 +1208,20 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
         char file_name_raw[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name_raw, sizeof(file_name_raw), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
-        if (SecUtils_FileExists(file_name_raw))
+        if (SecUtils_FileExists(file_name_raw)) {
             SecUtils_RmFile(file_name_raw);
+            ++keys_found;
+
+            if (!SecUtils_FileExists(file_name_raw))
+                ++keys_deleted;
+        }
+
+        /* Left behind if the device lost power while store_raw_data was writing the raw key. */
+        char file_name_raw_tmp[SEC_MAX_FILE_PATH_LEN];
+        snprintf(file_name_raw_tmp, sizeof(file_name_raw_tmp), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN,
+                processorHandle->app_dir, object_id);
+        if (SecUtils_FileExists(file_name_raw_tmp))
+            SecUtils_RmFile(file_name_raw_tmp);
 
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN, processorHandle->app_dir,
