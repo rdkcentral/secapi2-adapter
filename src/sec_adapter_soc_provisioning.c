@@ -738,6 +738,9 @@ Sec_Result store_raw_data(Sec_ProcessorHandle* processorHandle, Sec_StorageLoc l
 
     if (SecUtils_WriteFile(file_name, data, data_length) != SEC_RESULT_SUCCESS) {
         SEC_LOG_ERROR("Write failed for file :%s", file_name);
+        // Never leave a partially written raw key behind: its presence means the key is fully provisioned.
+        if (SecUtils_FileExists(file_name))
+            SecUtils_RmFile(file_name);
         return SEC_RESULT_FAILURE;
     }
     return SEC_RESULT_SUCCESS;
