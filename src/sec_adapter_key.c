@@ -1220,8 +1220,13 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
         char file_name_raw_tmp[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name_raw_tmp, sizeof(file_name_raw_tmp), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN,
                 processorHandle->app_dir, object_id);
-        if (SecUtils_FileExists(file_name_raw_tmp))
+        if (SecUtils_FileExists(file_name_raw_tmp)) {
             SecUtils_RmFile(file_name_raw_tmp);
+            ++keys_found;
+
+            if (!SecUtils_FileExists(file_name_raw_tmp))
+                ++keys_deleted;
+        }
 
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name_info, sizeof(file_name_info), "%s" SEC_KEYINFO_FILENAME_PATTERN, processorHandle->app_dir,

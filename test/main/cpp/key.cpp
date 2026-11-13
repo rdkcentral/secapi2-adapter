@@ -418,6 +418,16 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
         return SEC_RESULT_FAILURE;
     }
 
+    if (SecUtils_WriteFile(tmp_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecUtils_WriteFile failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not report/remove a temporary raw key");
+        return SEC_RESULT_FAILURE;
+    }
+
     return SEC_RESULT_SUCCESS;
 }
 #endif
