@@ -358,7 +358,7 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
         return SEC_RESULT_FAILURE;
     }
 
-    // soc_prov_api relies on this exact file name to tell whether the device is ready for TA provisioning.
+    // TA provisioning reads this exact file name.
     char raw_file[SEC_MAX_FILE_PATH_LEN];
     snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/",
             SEC_OBJECTID_WV_KEY);
