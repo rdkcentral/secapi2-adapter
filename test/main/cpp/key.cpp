@@ -362,6 +362,8 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
     char raw_file[SEC_MAX_FILE_PATH_LEN];
     snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/",
             SEC_OBJECTID_WV_KEY);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s.tmp", raw_file);
 
     // The exported key must still load, so a rollback to a build without TA provisioning keeps working.
     Sec_KeyHandle* keyHandle = ctx.provisionKey(SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->key.data(),
@@ -372,8 +374,8 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
     }
     ctx.releaseKey(keyHandle);
 
-    if (!rawKeyFileMatches(raw_file, prov->key)) {
-        SEC_LOG_ERROR("Raw key file is missing or does not match the provisioned data");
+    if (!rawKeyFileMatches(raw_file, prov->key) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("Raw key file is missing, does not match the provisioned data, or left a temporary file");
         return SEC_RESULT_FAILURE;
     }
 
@@ -399,6 +401,20 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
 
     if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(raw_file)) {
         SEC_LOG_ERROR("SecKey_Delete did not remove the raw key file");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A raw key left without its exported key, and the temporary file of an interrupted raw write, are still key
+    // material: deleting them must remove both and report success.
+    if (SecUtils_WriteFile(raw_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS ||
+            SecUtils_WriteFile(tmp_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecUtils_WriteFile failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(raw_file) ||
+            SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove a leftover raw key");
         return SEC_RESULT_FAILURE;
     }
 

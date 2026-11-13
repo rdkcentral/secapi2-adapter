@@ -732,16 +732,45 @@ Sec_Result store_raw_data(Sec_ProcessorHandle* processorHandle, Sec_StorageLoc l
 
     Sec_Result status = SEC_RESULT_FAILURE;
     char file_name[SEC_MAX_FILE_PATH_LEN];
+    char tmp_file_name[SEC_MAX_FILE_PATH_LEN];
+    int dir_fd = -1;
 
     snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
+    snprintf(tmp_file_name, sizeof(tmp_file_name), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN, processorHandle->app_dir,
+                object_id);
 
-    if (SecUtils_WriteFile(file_name, data, data_length) != SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("Write failed for file :%s", file_name);
-        // Never leave a partially written raw key behind: its presence means the key is fully provisioned.
-        if (SecUtils_FileExists(file_name))
+    /*
+     * The presence of the raw key file means the key is fully provisioned, so it must never be seen partially
+     * written, even after a crash or power loss. Write and verify a temporary file, then atomically rename it.
+     */
+    do {
+        if (SecUtils_WriteFile(tmp_file_name, data, data_length) != SEC_RESULT_SUCCESS) {
+            SEC_LOG_ERROR("Write failed for file :%s", tmp_file_name);
+            break;
+        }
+
+        if (rename(tmp_file_name, file_name) != 0) {
+            SEC_LOG_ERROR("Rename to %s failed, errno: %d", file_name, errno);
+            break;
+        }
+
+        // Persist the rename.
+        dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
+        if (dir_fd < 0 || fsync(dir_fd) != 0) {
+            SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
             SecUtils_RmFile(file_name);
-        return SEC_RESULT_FAILURE;
-    }
-    return SEC_RESULT_SUCCESS;
+            break;
+        }
+
+        status = SEC_RESULT_SUCCESS;
+    } while (false);
+
+    if (dir_fd >= 0)
+        close(dir_fd);
+
+    if (status != SEC_RESULT_SUCCESS && SecUtils_FileExists(tmp_file_name))
+        SecUtils_RmFile(tmp_file_name);
+
+    return status;
 }
