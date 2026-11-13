@@ -111,11 +111,11 @@ bool readNetflixData(Sec_ProcessorHandle* processorHandle, NetflixProvisioning**
 
     snprintf(file_esn_name, sizeof(file_esn_name), "%s" SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
                esn_container_obj);
-    snprintf(file_encryption_key_name, sizeof(file_encryption_key_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+    snprintf(file_encryption_key_name, sizeof(file_encryption_key_name), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                encryption_key_obj);
-    snprintf(file_hmac_key_name, sizeof(file_hmac_key_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+    snprintf(file_hmac_key_name, sizeof(file_hmac_key_name), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                hmac_key_obj);
-    snprintf(file_wrapping_key_name, sizeof(file_wrapping_key_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+    snprintf(file_wrapping_key_name, sizeof(file_wrapping_key_name), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                wrapping_key_obj);
 
 
@@ -235,7 +235,7 @@ bool readAppleMfiData(Sec_ProcessorHandle* processorHandle, AppleMfiProvisioning
     SEC_OBJECTID mfiBaseKey_obj = SEC_OBJECTID_MFI_BASE_KEY; 
     SEC_OBJECTID mfiProvisioning_obj = SEC_OBJECTID_MFI_BUNDLE;
 
-    snprintf(file_base_key_name, sizeof(file_base_key_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+    snprintf(file_base_key_name, sizeof(file_base_key_name), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                mfiBaseKey_obj);
     snprintf(file_provisioning_object_name, sizeof(file_provisioning_object_name), "%s" SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
                mfiProvisioning_obj);
@@ -357,7 +357,7 @@ bool readPlayReadyData(Sec_ProcessorHandle* processorHandle, PlayReadyProvisioni
         modelCertificate_obj = SEC_OBJECTID_PLAYREADY_MODELCERT_3K;
     }
 
-    snprintf(file_private_key, sizeof(file_private_key), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+    snprintf(file_private_key, sizeof(file_private_key), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                privateKey_obj);
     snprintf(file_oem_cert, sizeof(file_oem_cert), "%s" SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
                modelCertificate_obj);
@@ -431,7 +431,7 @@ bool readWidevineData(Sec_ProcessorHandle* processorHandle, WidevineOemProvision
     SEC_OBJECTID privateKey_obj = SEC_OBJECTID_WV_KEY; 
     SEC_OBJECTID oemCertificate_obj = SEC_OBJECTID_WV_CERTBUNDLE;
 
-    snprintf(file_private_key, sizeof(file_private_key), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+    snprintf(file_private_key, sizeof(file_private_key), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
                privateKey_obj);
     snprintf(file_oem_cert, sizeof(file_oem_cert), "%s" SEC_BUNDLE_FILENAME_PATTERN, processorHandle->app_dir,
                oemCertificate_obj);
@@ -732,13 +732,45 @@ Sec_Result store_raw_data(Sec_ProcessorHandle* processorHandle, Sec_StorageLoc l
 
     Sec_Result status = SEC_RESULT_FAILURE;
     char file_name[SEC_MAX_FILE_PATH_LEN];
+    char tmp_file_name[SEC_MAX_FILE_PATH_LEN];
+    int dir_fd = -1;
 
-    snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir,
+    snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
+                object_id);
+    snprintf(tmp_file_name, sizeof(tmp_file_name), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN, processorHandle->app_dir,
                 object_id);
 
-    if (SecUtils_WriteFile(file_name, data, data_length) != SEC_RESULT_SUCCESS) {
-        SEC_LOG_ERROR("Write failed for file :%s", file_name);
-        return SEC_RESULT_FAILURE;
-    }
-    return SEC_RESULT_SUCCESS;
+    /*
+     * The presence of the raw key file means the key is fully provisioned, so it must never be seen partially
+     * written, even after a crash or power loss. Write and verify a temporary file, then atomically rename it.
+     */
+    do {
+        if (SecUtils_WriteFile(tmp_file_name, data, data_length) != SEC_RESULT_SUCCESS) {
+            SEC_LOG_ERROR("Write failed for file :%s", tmp_file_name);
+            break;
+        }
+
+        if (rename(tmp_file_name, file_name) != 0) {
+            SEC_LOG_ERROR("Rename to %s failed, errno: %d", file_name, errno);
+            break;
+        }
+
+        // Persist the rename.
+        dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
+        if (dir_fd < 0 || fsync(dir_fd) != 0) {
+            SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
+            SecUtils_RmFile(file_name);
+            break;
+        }
+
+        status = SEC_RESULT_SUCCESS;
+    } while (false);
+
+    if (dir_fd >= 0)
+        close(dir_fd);
+
+    if (status != SEC_RESULT_SUCCESS && SecUtils_FileExists(tmp_file_name))
+        SecUtils_RmFile(tmp_file_name);
+
+    return status;
 }

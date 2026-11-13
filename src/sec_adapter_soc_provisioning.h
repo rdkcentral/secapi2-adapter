@@ -24,6 +24,11 @@
 #include "sec_security_utils.h"
 #include <memory.h>
 
+/* Raw (unexported) copy of a SoC vendor-specific key, consumed by TA provisioning. */
+#define SEC_KEY_RAW_FILENAME_PATTERN SEC_OBJECTID_PATTERN "_raw.key"
+/* Written first by store_raw_data and then renamed to the raw key file, so the raw key file is never partial. */
+#define SEC_KEY_RAW_TMP_FILENAME_PATTERN SEC_KEY_RAW_FILENAME_PATTERN ".tmp"
+
 
 /* Number of objects to sa_key_provision_ta for provisioning */
 #define WIDEVINE_OBJ 2

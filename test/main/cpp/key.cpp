@@ -337,6 +337,101 @@ Sec_Result testKeyNoSha(SEC_OBJECTID id, TestKey key, TestKc kc) {
     return SEC_RESULT_SUCCESS;
 }
 
+#if ENABLE_SOC_PROVISION_WIDEVINE
+static bool rawKeyFileMatches(const char* file_name, const std::vector<SEC_BYTE>& expected) {
+    std::vector<SEC_BYTE> raw(SEC_KEYCONTAINER_MAX_LEN);
+    SEC_SIZE raw_len = 0;
+    return SecUtils_ReadFile(file_name, raw.data(), raw.size(), &raw_len) == SEC_RESULT_SUCCESS &&
+           raw_len == expected.size() && memcmp(raw.data(), expected.data(), raw_len) == 0;
+}
+
+Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // TA provisioning reads this exact file name.
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/",
+            SEC_OBJECTID_WV_KEY);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s.tmp", raw_file);
+
+    // The exported key must still load, so a rollback to a build without TA provisioning keeps working.
+    Sec_KeyHandle* keyHandle = ctx.provisionKey(SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->key.data(),
+            prov->key.size(), prov->kc);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("ctx.provisionKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    if (!rawKeyFileMatches(raw_file, prov->key) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("Raw key file is missing, does not match the provisioned data, or left a temporary file");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A rejected provision must leave both copies untouched.
+    SEC_BYTE bad[64] = {0x30, 0x82, 0xde, 0xad};
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, bad, sizeof(bad)) ==
+            SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision was supposed to fail but didn't");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, prov->key)) {
+        SEC_LOG_ERROR("Raw key file was changed by a failed provision");
+        return SEC_RESULT_FAILURE;
+    }
+
+    keyHandle = ctx.getKey(SEC_OBJECTID_WV_KEY);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("Exported key was changed by a failed provision");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(raw_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the raw key file");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A raw key left without its exported key, and the temporary file of an interrupted raw write, are still key
+    // material: deleting them must remove both and report success.
+    if (SecUtils_WriteFile(raw_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS ||
+            SecUtils_WriteFile(tmp_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecUtils_WriteFile failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(raw_file) ||
+            SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove a leftover raw key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecUtils_WriteFile(tmp_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecUtils_WriteFile failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not report/remove a temporary raw key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+#endif
+
 static Sec_KeyType GroupToKeyType(const EC_GROUP* group) {
     if (nullptr == group)
         return SEC_KEYTYPE_NUM;
