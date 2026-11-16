@@ -22,6 +22,7 @@
 #include "sec_security_utils.h"
 #include "test_ctx.h"
 #include <cstdlib>
+#include <memory>
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 #include <openssl/pem.h>
 #endif
