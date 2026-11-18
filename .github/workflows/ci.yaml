@@ -37,3 +37,33 @@ jobs:
       run: sudo cmake --install cmake-build
     - name: Test
       run: cd cmake-build && ./sec_api_2_adapter_test
+
+  soc-provision-widevine:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install YAJL
+      run: sudo apt-get install -y libyajl-dev
+      continue-on-error: true
+    - name: Install OpenSSL
+      run: sudo apt-get install -y libssl-dev
+    - name: Install Reference tasecureapi Implementation
+      run: |
+        git clone https://github.com/rdkcentral/tasecureapi.git tasecureapi
+        cd tasecureapi
+        cmake -S reference -B reference/cmake-build -DENABLE_SVP=ON
+        cmake --build reference/cmake-build
+        sudo cmake --install reference/cmake-build
+    - name: Config
+      run: >-
+        cmake
+        -S .
+        -B cmake-build
+        -DENABLE_SOC_PROVISION_WIDEVINE=ON
+        -DCMAKE_C_FLAGS="-DENABLE_SVP=1"
+        -DCMAKE_CXX_FLAGS="-DENABLE_SVP=1"
+    - name: Build
+      run: cmake --build cmake-build
+    - name: Test
+      run: cd cmake-build && ./sec_api_2_adapter_test

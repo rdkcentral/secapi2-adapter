@@ -400,6 +400,18 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
     }
     ctx.releaseKey(keyHandle);
 
+    // TA provisioning reads from app_dir, so RAM storage must be rejected without touching the stored copies.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_RAM, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision to RAM was supposed to fail for a SoC key but didn't");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, prov->key)) {
+        SEC_LOG_ERROR("Raw key file was changed by a rejected RAM provision");
+        return SEC_RESULT_FAILURE;
+    }
+
     if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(raw_file)) {
         SEC_LOG_ERROR("SecKey_Delete did not remove the raw key file");
         return SEC_RESULT_FAILURE;

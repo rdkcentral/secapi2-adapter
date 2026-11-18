@@ -611,6 +611,14 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
         SEC_LOG_ERROR("Key data is too long");
         return SEC_RESULT_FAILURE;
     }
+
+    // TA provisioning reads both copies from app_dir, so SoC vendor-specific keys must be file backed.
+    if (SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS && location != SEC_STORAGELOC_FILE &&
+            location != SEC_STORAGELOC_FILE_SOFT_WRAPPED) {
+        SEC_LOG_ERROR("SoC vendor-specific key " SEC_OBJECTID_PATTERN " must be stored in a file", object_id);
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
     Sec_Key key;
     Sec_KeyContainer key_container;
     SEC_SIZE key_length = SEC_KEYCONTAINER_MAX_LEN;
@@ -637,7 +645,7 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
     if (result == SEC_RESULT_SUCCESS && SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS) {
         result = store_raw_data(processorHandle, location, object_id, data, data_length);
         if (result != SEC_RESULT_SUCCESS)
-            SEC_LOG_ERROR("Failed store_raw_data in SecKey_Provision");
+            SEC_LOG_ERROR("Failed store_raw_data for object " SEC_OBJECTID_PATTERN, object_id);
     }
 
     return result;
@@ -1195,6 +1203,43 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
 
     /* file system */
     if (processorHandle->app_dir != NULL) {
+        /*
+         * Retract the raw key first, atomically: rename it to the temporary name and persist the rename before
+         * wiping anything. SecUtils_RmFile zero-fills before unlinking, so wiping <id>_raw.key in place could leave
+         * a durable zero-filled raw key behind after a power loss, and its presence means both copies are good.
+         */
+        char file_name_raw[SEC_MAX_FILE_PATH_LEN];
+        snprintf(file_name_raw, sizeof(file_name_raw), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
+                object_id);
+        char file_name_raw_tmp[SEC_MAX_FILE_PATH_LEN];
+        snprintf(file_name_raw_tmp, sizeof(file_name_raw_tmp), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN,
+                processorHandle->app_dir, object_id);
+        if (SecUtils_FileExists(file_name_raw)) {
+            ++keys_found;
+            if (rename(file_name_raw, file_name_raw_tmp) == 0) {
+                int dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
+                if (dir_fd < 0 || fsync(dir_fd) != 0)
+                    SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
+                if (dir_fd >= 0)
+                    close(dir_fd);
+            } else {
+                SEC_LOG_ERROR("Rename of %s failed, errno: %d", file_name_raw, errno);
+                SecUtils_RmFile(file_name_raw);
+            }
+
+            if (!SecUtils_FileExists(file_name_raw))
+                ++keys_deleted;
+        }
+
+        /* The renamed raw key, or a leftover from an interrupted store_raw_data. */
+        if (SecUtils_FileExists(file_name_raw_tmp)) {
+            SecUtils_RmFile(file_name_raw_tmp);
+            ++keys_found;
+
+            if (!SecUtils_FileExists(file_name_raw_tmp))
+                ++keys_deleted;
+        }
+
         char file_name[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir, object_id);
         if (SecUtils_FileExists(file_name)) {
@@ -1202,29 +1247,6 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
             ++keys_found;
 
             if (!SecUtils_FileExists(file_name))
-                ++keys_deleted;
-        }
-
-        char file_name_raw[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_raw, sizeof(file_name_raw), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
-                object_id);
-        if (SecUtils_FileExists(file_name_raw)) {
-            SecUtils_RmFile(file_name_raw);
-            ++keys_found;
-
-            if (!SecUtils_FileExists(file_name_raw))
-                ++keys_deleted;
-        }
-
-        /* Left behind if the device lost power while store_raw_data was writing the raw key. */
-        char file_name_raw_tmp[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_raw_tmp, sizeof(file_name_raw_tmp), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN,
-                processorHandle->app_dir, object_id);
-        if (SecUtils_FileExists(file_name_raw_tmp)) {
-            SecUtils_RmFile(file_name_raw_tmp);
-            ++keys_found;
-
-            if (!SecUtils_FileExists(file_name_raw_tmp))
                 ++keys_deleted;
         }
 
