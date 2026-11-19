@@ -360,11 +360,12 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
     }
 
     // TA provisioning reads this exact file name.
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
     char raw_file[SEC_MAX_FILE_PATH_LEN];
-    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/",
-            SEC_OBJECTID_WV_KEY);
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/", wv_key_id);
     char tmp_file[SEC_MAX_FILE_PATH_LEN];
-    snprintf(tmp_file, sizeof(tmp_file), "%s.tmp", raw_file);
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", "/tmp/sec_api_test_app/",
+            wv_key_id);
 
     // The exported key must still load, so a rollback to a build without TA provisioning keeps working.
     Sec_KeyHandle* keyHandle = ctx.provisionKey(SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->key.data(),
