@@ -39,6 +39,8 @@ Sec_Result testKeyNoSha(SEC_OBJECTID id, TestKey key, TestKc kc);
 Sec_Result testKeyProvisionSocKeepsExportedAndRaw();
 
 Sec_Result testKeyProvisionSocRawWriteFailure();
+
+Sec_Result testKeyRawKeyPathTooLong();
 #endif
 
 Sec_Result testKeyExtractPublicKey(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc);

@@ -102,6 +102,20 @@ bool readNetflixData(Sec_ProcessorHandle* processorHandle, NetflixProvisioning**
 Sec_Result SecSocProv_SocVendorSpecific(SEC_OBJECTID object_id);
 
 /**
+ * @brief Formats the path of an object's raw key file, or of its temporary file.
+ *
+ * @param app_dir The application directory, ending with a path separator.
+ * @param object_id The object ID of the key.
+ * @param temporary SEC_TRUE for the temporary file written before the raw key is published.
+ * @param path Output buffer for the path.
+ * @param path_len The size of the output buffer.
+ * @return SEC_TRUE only when the whole path fits. A truncated path can name another file, including the published
+ * raw key itself, so nothing may be written, renamed or wiped through it.
+ */
+SEC_BOOL SecSocProv_RawKeyPath(const char* app_dir, SEC_OBJECTID object_id, SEC_BOOL temporary, char* path,
+        size_t path_len);
+
+/**
  * @brief Stores raw data in a specified location for a given object ID.
  *
  * @param processorHandle Handle to the security processor.

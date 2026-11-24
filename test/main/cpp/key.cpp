@@ -23,7 +23,9 @@
 #include "test_ctx.h"
 #include <cerrno>
 #include <cstdlib>
+#include <dirent.h>
 #include <memory>
+#include <string>
 #include <sys/stat.h>
 #include <unistd.h>
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -525,6 +527,151 @@ Sec_Result testKeyProvisionSocRawWriteFailure() {
     if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file) ||
             SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
         SEC_LOG_ERROR("SecKey_Delete did not remove the exported key once the obstruction was cleared");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+
+static const char* const LONG_APP_DIR_BASE = "/tmp/sec_api_test_long_app/";
+
+// Builds a directory path of exactly `length` characters, trailing separator included, under LONG_APP_DIR_BASE.
+// Components stay well below NAME_MAX; the processor creates the directories.
+static std::string longAppDirOfLength(size_t length) {
+    std::string path = LONG_APP_DIR_BASE;
+    while (path.size() < length) {
+        size_t remaining = length - path.size();
+        size_t component = remaining - 1;
+        if (component > 200)
+            component = remaining - 201 >= 2 ? 200 : 150;
+        path.append(component, 'd');
+        path += '/';
+    }
+    return path;
+}
+
+// Removes every file in the long app_dir and then the directory chain, even when a check fails.
+struct LongAppDirGuard {
+    std::string dir;
+
+    ~LongAppDirGuard() {
+        DIR* d = opendir(dir.c_str());
+        if (d != nullptr) {
+            struct dirent* entry;
+            while ((entry = readdir(d)) != nullptr) { // NOLINT
+                std::string name = entry->d_name;
+                if (name != "." && name != "..")
+                    unlink((dir + name).c_str());
+            }
+            closedir(d);
+        }
+
+        std::string path = dir;
+        while (path.size() > strlen(LONG_APP_DIR_BASE)) {
+            path.pop_back(); // trailing separator
+            rmdir(path.c_str());
+            path.erase(path.find_last_of('/') + 1);
+        }
+        rmdir(LONG_APP_DIR_BASE);
+    }
+};
+
+Sec_Result testKeyRawKeyPathTooLong() {
+    // The longest app_dir whose raw key path still fits: the temporary path then truncates to the raw key path.
+    const size_t raw_suffix_len = 16 + strlen("_raw.key");
+    LongAppDirGuard dir_guard{longAppDirOfLength(SEC_MAX_FILE_PATH_LEN - 1 - raw_suffix_len)};
+    const char* app_dir = dir_guard.dir.c_str();
+
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char key_file[SEC_MAX_FILE_PATH_LEN];
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    if (snprintf(key_file, sizeof(key_file), "%s" SEC_OBJECTID_PATTERN ".key", app_dir, wv_key_id) >=
+                    static_cast<int>(sizeof(key_file)) ||
+            snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", app_dir, wv_key_id) !=
+                    static_cast<int>(sizeof(raw_file)) - 1) {
+        SEC_LOG_ERROR("Unexpected path lengths for the long app_dir");
+        return SEC_RESULT_FAILURE;
+    }
+
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", app_dir) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // The raw key cannot be written safely, so provisioning fails without publishing it; the exported key stays.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision was supposed to fail when the raw key paths do not fit");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecUtils_FileExists(raw_file)) {
+        SEC_LOG_ERROR("A raw key was published through a truncated temporary path");
+        return SEC_RESULT_FAILURE;
+    }
+
+    Sec_KeyHandle* keyHandle = ctx.getKey(SEC_OBJECTID_WV_KEY);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("The exported key is not loadable after the raw write was refused");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    // A raw key that exists at this path (e.g. from an older build) cannot be retracted atomically: deleting must
+    // fail and leave it and the exported key intact instead of wiping it in place.
+    if (SecUtils_WriteFile(raw_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecUtils_WriteFile failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Delete was supposed to fail for a raw key it cannot retract");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, prov->key) || !SecUtils_FileExists(key_file)) {
+        SEC_LOG_ERROR("SecKey_Delete wiped the raw key in place or removed the exported key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Without a raw key, deletion through the paths that do fit still works.
+    if (unlink(raw_file) != 0) {
+        SEC_LOG_ERROR("unlink failed, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the exported key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Ordinary keys are unaffected in the same app_dir.
+    std::shared_ptr<ProvKey> aes(TestCreds::getKey(TESTKEY_AES128, TESTKC_RAW, SEC_OBJECTID_USER_BASE));
+    if (!aes) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const SEC_OBJECTID user_id = SEC_OBJECTID_USER_BASE;
+    char user_key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(user_key_file, sizeof(user_key_file), "%s" SEC_OBJECTID_PATTERN ".key", app_dir, user_id);
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_USER_BASE, SEC_STORAGELOC_FILE, aes->kc, aes->key.data(),
+                aes->key.size()) != SEC_RESULT_SUCCESS ||
+            !SecUtils_FileExists(user_key_file)) {
+        SEC_LOG_ERROR("SecKey_Provision failed for an ordinary key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_USER_BASE) != SEC_RESULT_SUCCESS ||
+            SecUtils_FileExists(user_key_file)) {
+        SEC_LOG_ERROR("SecKey_Delete failed for an ordinary key");
         return SEC_RESULT_FAILURE;
     }
 

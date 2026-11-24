@@ -1185,6 +1185,27 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
     SEC_SIZE keys_deleted = 0;
     CHECK_PROCHANDLE(processorHandle)
 
+    /*
+     * The raw key is only retracted and wiped through complete paths: with a long app_dir a truncated temporary
+     * name can equal the raw key name, so the rename would not retract it and the wipe would zero it in place.
+     */
+    char file_name_raw[SEC_MAX_FILE_PATH_LEN];
+    char file_name_raw_tmp[SEC_MAX_FILE_PATH_LEN];
+    SEC_BOOL raw_paths_fit = SEC_FALSE;
+    if (processorHandle->app_dir != NULL) {
+        SEC_BOOL raw_fits = SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_FALSE, file_name_raw,
+                sizeof(file_name_raw));
+        SEC_BOOL raw_tmp_fits = SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_TRUE,
+                file_name_raw_tmp, sizeof(file_name_raw_tmp));
+        raw_paths_fit = (raw_fits == SEC_TRUE && raw_tmp_fits == SEC_TRUE) ? SEC_TRUE : SEC_FALSE;
+
+        /* A raw key that cannot be retracted safely is kept with its exported key, so the pair stays consistent. */
+        if (raw_fits == SEC_TRUE && raw_paths_fit != SEC_TRUE && SecUtils_FileExists(file_name_raw)) {
+            SEC_LOG_ERROR("Cannot retract raw key %s: its temporary path does not fit", file_name_raw);
+            return SEC_RESULT_ITEM_NON_REMOVABLE;
+        }
+    }
+
     /* ram */
     find_ram_key_data(processorHandle, object_id, &ram_key, &ram_key_parent);
     if (ram_key != NULL) {
@@ -1208,36 +1229,32 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
          * wiping anything. SecUtils_RmFile zero-fills before unlinking, so wiping <id>_raw.key in place could leave
          * a durable zero-filled raw key behind after a power loss, and its presence means both copies are good.
          */
-        char file_name_raw[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_raw, sizeof(file_name_raw), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
-                object_id);
-        char file_name_raw_tmp[SEC_MAX_FILE_PATH_LEN];
-        snprintf(file_name_raw_tmp, sizeof(file_name_raw_tmp), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN,
-                processorHandle->app_dir, object_id);
-        if (SecUtils_FileExists(file_name_raw)) {
-            ++keys_found;
-            if (rename(file_name_raw, file_name_raw_tmp) == 0) {
-                int dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
-                if (dir_fd < 0 || fsync(dir_fd) != 0)
-                    SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
-                if (dir_fd >= 0)
-                    close(dir_fd);
-            } else {
-                SEC_LOG_ERROR("Rename of %s failed, errno: %d", file_name_raw, errno);
-                SecUtils_RmFile(file_name_raw);
+        if (raw_paths_fit == SEC_TRUE) {
+            if (SecUtils_FileExists(file_name_raw)) {
+                ++keys_found;
+                if (rename(file_name_raw, file_name_raw_tmp) == 0) {
+                    int dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
+                    if (dir_fd < 0 || fsync(dir_fd) != 0)
+                        SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
+                    if (dir_fd >= 0)
+                        close(dir_fd);
+                } else {
+                    SEC_LOG_ERROR("Rename of %s failed, errno: %d", file_name_raw, errno);
+                    SecUtils_RmFile(file_name_raw);
+                }
+
+                if (!SecUtils_FileExists(file_name_raw))
+                    ++keys_deleted;
             }
 
-            if (!SecUtils_FileExists(file_name_raw))
-                ++keys_deleted;
-        }
+            /* The renamed raw key, or a leftover from an interrupted store_raw_data. */
+            if (SecUtils_FileExists(file_name_raw_tmp)) {
+                SecUtils_RmFile(file_name_raw_tmp);
+                ++keys_found;
 
-        /* The renamed raw key, or a leftover from an interrupted store_raw_data. */
-        if (SecUtils_FileExists(file_name_raw_tmp)) {
-            SecUtils_RmFile(file_name_raw_tmp);
-            ++keys_found;
-
-            if (!SecUtils_FileExists(file_name_raw_tmp))
-                ++keys_deleted;
+                if (!SecUtils_FileExists(file_name_raw_tmp))
+                    ++keys_deleted;
+            }
         }
 
         char file_name[SEC_MAX_FILE_PATH_LEN];

@@ -748,6 +748,17 @@ Sec_Result provisioning_ta(Sec_ProcessorHandle* processorHandle, size_t numPaths
 
     return SEC_RESULT_SUCCESS;
 }
+SEC_BOOL SecSocProv_RawKeyPath(const char* app_dir, SEC_OBJECTID object_id, SEC_BOOL temporary, char* path,
+        size_t path_len) {
+    if (app_dir == NULL || path == NULL || path_len == 0)
+        return SEC_FALSE;
+
+    int written = temporary == SEC_TRUE ?
+            snprintf(path, path_len, "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN, app_dir, object_id) :
+            snprintf(path, path_len, "%s" SEC_KEY_RAW_FILENAME_PATTERN, app_dir, object_id);
+    return written >= 0 && (size_t) written < path_len ? SEC_TRUE : SEC_FALSE;
+}
+
 Sec_Result store_raw_data(Sec_ProcessorHandle* processorHandle, Sec_StorageLoc location, SEC_OBJECTID object_id,
     SEC_BYTE* data, SEC_SIZE data_length) {
 
@@ -761,10 +772,15 @@ Sec_Result store_raw_data(Sec_ProcessorHandle* processorHandle, Sec_StorageLoc l
         return SEC_RESULT_FAILURE;
     }
 
-    snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_RAW_FILENAME_PATTERN, processorHandle->app_dir,
-                object_id);
-    snprintf(tmp_file_name, sizeof(tmp_file_name), "%s" SEC_KEY_RAW_TMP_FILENAME_PATTERN, processorHandle->app_dir,
-                object_id);
+    /* With a long app_dir the temporary name can truncate to the raw key name, which would publish a partial file. */
+    if (SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_FALSE, file_name, sizeof(file_name)) !=
+                    SEC_TRUE ||
+            SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_TRUE, tmp_file_name,
+                    sizeof(tmp_file_name)) != SEC_TRUE) {
+        SEC_LOG_ERROR("Raw key path for object " SEC_OBJECTID_PATTERN " does not fit in app_dir: %s", object_id,
+                processorHandle->app_dir);
+        return SEC_RESULT_FAILURE;
+    }
 
     /*
      * The presence of the raw key file means the key is fully provisioned, so it must never be seen partially
