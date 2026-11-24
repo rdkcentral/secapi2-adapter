@@ -619,6 +619,21 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
         return SEC_RESULT_INVALID_PARAMETERS;
     }
 
+    // Check the raw key paths before anything is stored, so a key whose raw copy cannot be written safely (its
+    // temporary name would truncate, possibly to the raw key name itself) leaves the stored copies untouched.
+    if (SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS) {
+        char raw_path[SEC_MAX_FILE_PATH_LEN];
+        char raw_tmp_path[SEC_MAX_FILE_PATH_LEN];
+        if (SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_FALSE, raw_path, sizeof(raw_path)) !=
+                        SEC_TRUE ||
+                SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_TRUE, raw_tmp_path,
+                        sizeof(raw_tmp_path)) != SEC_TRUE) {
+            SEC_LOG_ERROR("Raw key path for SoC vendor-specific key " SEC_OBJECTID_PATTERN " does not fit in app_dir",
+                    object_id);
+            return SEC_RESULT_INVALID_PARAMETERS;
+        }
+    }
+
     Sec_Key key;
     Sec_KeyContainer key_container;
     SEC_SIZE key_length = SEC_KEYCONTAINER_MAX_LEN;
@@ -2449,7 +2464,12 @@ static Sec_Result store_key_data(Sec_ProcessorHandle* processorHandle, Sec_Stora
     Sec_RAMKeyData* ram_key;
 
     if (location == SEC_STORAGELOC_RAM || location == SEC_STORAGELOC_RAM_SOFT_WRAPPED) {
-        SecKey_Delete(processorHandle, object_id);
+        Sec_Result delete_result = SecKey_Delete(processorHandle, object_id);
+        if (delete_result != SEC_RESULT_SUCCESS && delete_result != SEC_RESULT_NO_SUCH_ITEM) {
+            SEC_LOG_ERROR("Could not replace key " SEC_OBJECTID_PATTERN ": the existing key was not deleted",
+                    object_id);
+            return delete_result;
+        }
 
         ram_key = calloc(1, sizeof(Sec_RAMKeyData));
         if (ram_key == NULL) {
@@ -2470,7 +2490,13 @@ static Sec_Result store_key_data(Sec_ProcessorHandle* processorHandle, Sec_Stora
             return SEC_RESULT_FAILURE;
         }
 
-        SecKey_Delete(processorHandle, object_id);
+        // Never overwrite the exported key while an old copy (e.g. its raw key) survives, or they would diverge.
+        Sec_Result delete_result = SecKey_Delete(processorHandle, object_id);
+        if (delete_result != SEC_RESULT_SUCCESS && delete_result != SEC_RESULT_NO_SUCH_ITEM) {
+            SEC_LOG_ERROR("Could not replace key " SEC_OBJECTID_PATTERN ": the existing key was not deleted",
+                    object_id);
+            return delete_result;
+        }
 
         char file_name_key[SEC_MAX_FILE_PATH_LEN];
         char file_name_info[SEC_MAX_FILE_PATH_LEN];
