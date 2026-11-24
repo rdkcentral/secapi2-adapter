@@ -797,11 +797,14 @@ Sec_Result store_raw_data(Sec_ProcessorHandle* processorHandle, Sec_StorageLoc l
             break;
         }
 
-        // Persist the rename.
+        /*
+         * Persist the rename. If that fails, report it but leave the raw key in place: it is complete and the
+         * exported key was stored first, whereas wiping it (zero-fill, then unlink) could leave a durable all-zero
+         * raw key after a power loss.
+         */
         dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
         if (dir_fd < 0 || fsync(dir_fd) != 0) {
             SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
-            SecUtils_RmFile(file_name);
             break;
         }
 

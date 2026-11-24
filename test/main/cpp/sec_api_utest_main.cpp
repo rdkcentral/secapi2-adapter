@@ -231,6 +231,7 @@ void runKeyTests(SuiteCtx* suite) { // NOLINT
     RUN_TEST(suite, testKeyProvisionSocKeepsExportedAndRaw())
     RUN_TEST(suite, testKeyProvisionSocRawWriteFailure())
     RUN_TEST(suite, testKeyRawKeyPathTooLong())
+    RUN_TEST(suite, testKeyDeleteKeepsRawKeyWhenRetractionFails())
 #endif
     RUN_TEST(suite, testKeyGenerate(SEC_OBJECTID_USER_BASE, SEC_KEYTYPE_AES_128, SEC_STORAGELOC_RAM, SEC_TRUE))
     RUN_TEST(suite, testKeyGenerate(SEC_OBJECTID_USER_BASE, SEC_KEYTYPE_HMAC_128, SEC_STORAGELOC_RAM, SEC_FALSE))

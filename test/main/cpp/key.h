@@ -41,6 +41,8 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw();
 Sec_Result testKeyProvisionSocRawWriteFailure();
 
 Sec_Result testKeyRawKeyPathTooLong();
+
+Sec_Result testKeyDeleteKeepsRawKeyWhenRetractionFails();
 #endif
 
 Sec_Result testKeyExtractPublicKey(SEC_OBJECTID id, TestKey key, TestKc kc, Sec_StorageLoc loc);

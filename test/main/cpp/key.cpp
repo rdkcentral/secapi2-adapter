@@ -740,6 +740,107 @@ Sec_Result testKeyRawKeyPathTooLong() {
 
     return SEC_RESULT_SUCCESS;
 }
+
+// Removes the directory that blocks the raw key retraction and the key, even when a check fails.
+struct RetractionBlockerGuard {
+    Sec_ProcessorHandle* proc;
+    SEC_OBJECTID object_id;
+    const char* dir;
+    const char* file;
+
+    ~RetractionBlockerGuard() {
+        if (dir != nullptr) {
+            unlink(file);
+            rmdir(dir);
+            SecKey_Delete(proc, object_id);
+        }
+    }
+};
+
+Sec_Result testKeyDeleteKeepsRawKeyWhenRetractionFails() {
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(key_file, sizeof(key_file), "%s" SEC_OBJECTID_PATTERN ".key", "/tmp/sec_api_test_app/", wv_key_id);
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/", wv_key_id);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", "/tmp/sec_api_test_app/",
+            wv_key_id);
+    char blocker_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(blocker_file, sizeof(blocker_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp/blocker",
+            "/tmp/sec_api_test_app/", wv_key_id);
+
+    SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+    if (SecUtils_FileExists(key_file) || SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("Could not remove a leftover key before the test");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::vector<SEC_BYTE> key_contents;
+    std::vector<SEC_BYTE> raw_contents;
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) != SEC_RESULT_SUCCESS ||
+            !readKeyFile(key_file, key_contents) || !readKeyFile(raw_file, raw_contents)) {
+        SEC_LOG_ERROR("Could not provision the key pair");
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A non-empty directory at the temporary name makes renaming the raw key away fail.
+    if (mkdir(tmp_file, 0700) != 0 ||
+            SecUtils_WriteFile(blocker_file, prov->key.data(), 1) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Could not create the blocking directory, errno: %d", errno);
+        rmdir(tmp_file);
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+    RetractionBlockerGuard guard{ctx.proc(), SEC_OBJECTID_WV_KEY, tmp_file, blocker_file};
+
+    // Without a durable retraction, deleting must fail and keep both copies rather than wipe the raw key in place.
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Delete was supposed to fail when the raw key could not be retracted");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, raw_contents) || !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("SecKey_Delete wiped a copy although the raw key could not be retracted");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Replacing the key must fail the same way instead of storing a new exported key next to the old raw key.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS ||
+            !rawKeyFileMatches(raw_file, raw_contents) || !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("Replacing the key changed a copy although the raw key could not be retracted");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (unlink(blocker_file) != 0 || rmdir(tmp_file) != 0) {
+        SEC_LOG_ERROR("Could not remove the blocking directory, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    guard.dir = nullptr;
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file) ||
+            SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the key once the retraction could succeed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
 #endif
 
 static Sec_KeyType GroupToKeyType(const EC_GROUP* group) {

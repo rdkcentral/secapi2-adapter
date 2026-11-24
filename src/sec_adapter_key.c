@@ -1241,35 +1241,41 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
     if (processorHandle->app_dir != NULL) {
         /*
          * Retract the raw key first, atomically: rename it to the temporary name and persist the rename before
-         * wiping anything. SecUtils_RmFile zero-fills before unlinking, so wiping <id>_raw.key in place could leave
-         * a durable zero-filled raw key behind after a power loss, and its presence means both copies are good.
+         * wiping anything. SecUtils_RmFile zero-fills before unlinking, so wiping <id>_raw.key in place, or wiping
+         * the renamed file before the rename is durable, could leave a durable zero-filled raw key behind after a
+         * power loss, and its presence means both copies are good. If the retraction cannot be made durable, stop
+         * and keep every copy.
          */
         if (raw_paths_fit == SEC_TRUE) {
-            if (SecUtils_FileExists(file_name_raw)) {
+            SEC_BOOL raw_found = SecUtils_FileExists(file_name_raw);
+            if (raw_found == SEC_TRUE) {
                 ++keys_found;
-                if (rename(file_name_raw, file_name_raw_tmp) == 0) {
-                    int dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
-                    if (dir_fd < 0 || fsync(dir_fd) != 0)
-                        SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
-                    if (dir_fd >= 0)
-                        close(dir_fd);
-                } else {
+                if (rename(file_name_raw, file_name_raw_tmp) != 0) {
                     SEC_LOG_ERROR("Rename of %s failed, errno: %d", file_name_raw, errno);
-                    SecUtils_RmFile(file_name_raw);
+                    return SEC_RESULT_ITEM_NON_REMOVABLE;
                 }
-
-                if (!SecUtils_FileExists(file_name_raw))
-                    ++keys_deleted;
             }
 
             /* The renamed raw key, or a leftover from an interrupted store_raw_data. */
             if (SecUtils_FileExists(file_name_raw_tmp)) {
-                SecUtils_RmFile(file_name_raw_tmp);
                 ++keys_found;
 
+                int dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
+                SEC_BOOL synced = dir_fd >= 0 && fsync(dir_fd) == 0 ? SEC_TRUE : SEC_FALSE;
+                if (synced != SEC_TRUE)
+                    SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
+                if (dir_fd >= 0)
+                    close(dir_fd);
+                if (synced != SEC_TRUE)
+                    return SEC_RESULT_ITEM_NON_REMOVABLE;
+
+                SecUtils_RmFile(file_name_raw_tmp);
                 if (!SecUtils_FileExists(file_name_raw_tmp))
                     ++keys_deleted;
             }
+
+            if (raw_found == SEC_TRUE && !SecUtils_FileExists(file_name_raw))
+                ++keys_deleted;
         }
 
         char file_name[SEC_MAX_FILE_PATH_LEN];
