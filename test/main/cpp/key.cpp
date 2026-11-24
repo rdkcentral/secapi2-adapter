@@ -21,8 +21,11 @@
 #include "sec_security_store.h"
 #include "sec_security_utils.h"
 #include "test_ctx.h"
+#include <cerrno>
 #include <cstdlib>
 #include <memory>
+#include <sys/stat.h>
+#include <unistd.h>
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 #include <openssl/pem.h>
 #endif
@@ -439,6 +442,89 @@ Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
 
     if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(tmp_file)) {
         SEC_LOG_ERROR("SecKey_Delete did not report/remove a temporary raw key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+
+// Removes the injected obstruction and the key even when a check fails, so later tests start clean.
+struct RawKeyObstructionGuard {
+    Sec_ProcessorHandle* proc;
+    SEC_OBJECTID object_id;
+    const char* blocker;
+
+    ~RawKeyObstructionGuard() {
+        if (blocker != nullptr) {
+            rmdir(blocker);
+            SecKey_Delete(proc, object_id);
+        }
+    }
+};
+
+Sec_Result testKeyProvisionSocRawWriteFailure() {
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(key_file, sizeof(key_file), "%s" SEC_OBJECTID_PATTERN ".key", "/tmp/sec_api_test_app/", wv_key_id);
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/", wv_key_id);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", "/tmp/sec_api_test_app/",
+            wv_key_id);
+
+    SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+    if (SecUtils_FileExists(key_file) || SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("Could not remove a leftover key before the test");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A directory at the temporary name makes the raw write fail after the exported key has been saved.
+    if (mkdir(tmp_file, 0700) != 0) {
+        SEC_LOG_ERROR("mkdir failed, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    RawKeyObstructionGuard guard{ctx.proc(), SEC_OBJECTID_WV_KEY, tmp_file};
+
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision was supposed to fail when the raw key could not be written");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecUtils_FileExists(raw_file)) {
+        SEC_LOG_ERROR("A raw key was published although writing it failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // The exported key stays, so the device keeps working and a rollback to a build without TA provisioning works.
+    Sec_KeyHandle* keyHandle = ctx.getKey(SEC_OBJECTID_WV_KEY);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("The exported key is not loadable after the raw write failed");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    if (rmdir(tmp_file) != 0) {
+        SEC_LOG_ERROR("rmdir failed, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    guard.blocker = nullptr;
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file) ||
+            SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the exported key once the obstruction was cleared");
         return SEC_RESULT_FAILURE;
     }
 
