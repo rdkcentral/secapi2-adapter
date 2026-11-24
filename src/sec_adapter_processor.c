@@ -465,166 +465,253 @@ Sec_Result Sec_SetStorageDir(const char* provided_dir, const char* default_dir, 
 
 void sa_process_command(sa_command* command) {
     switch (command->command_id) {
-        case SA_KEY_GENERATE:
-            command->result = sa_key_generate(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_key_type),
-                    va_arg(*command->arguments, void*));
+        case SA_KEY_GENERATE: {
+            sa_key* key = va_arg(*command->arguments, sa_key*);
+            sa_rights* rights = va_arg(*command->arguments, sa_rights*);
+            sa_key_type key_type = va_arg(*command->arguments, sa_key_type);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_key_generate(key, rights, key_type, parameters);
             break;
+        }
 
-        case SA_KEY_EXPORT:
-            command->result = sa_key_export(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t*),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_key));
+        case SA_KEY_EXPORT: {
+            void* out = va_arg(*command->arguments, void*);
+            size_t* out_length = va_arg(*command->arguments, size_t*);
+            void* mixin = va_arg(*command->arguments, void*);
+            size_t mixin_length = va_arg(*command->arguments, size_t);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            command->result = sa_key_export(out, out_length, mixin, mixin_length, key);
             break;
+        }
 
-        case SA_KEY_IMPORT:
-            command->result = sa_key_import(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_key_format), va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t), va_arg(*command->arguments, void*));
+        case SA_KEY_IMPORT: {
+            sa_key* key = va_arg(*command->arguments, sa_key*);
+            sa_key_format key_format = va_arg(*command->arguments, sa_key_format);
+            void* in = va_arg(*command->arguments, void*);
+            size_t in_length = va_arg(*command->arguments, size_t);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_key_import(key, key_format, in, in_length, parameters);
             break;
+        }
 
-        case SA_KEY_UNWRAP:
-            command->result = sa_key_unwrap(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_key_type),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, sa_cipher_algorithm),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
+        case SA_KEY_UNWRAP: {
+            sa_key* key = va_arg(*command->arguments, sa_key*);
+            sa_rights* rights = va_arg(*command->arguments, sa_rights*);
+            sa_key_type key_type = va_arg(*command->arguments, sa_key_type);
+            void* type_parameters = va_arg(*command->arguments, void*);
+            sa_cipher_algorithm cipher_algorithm = va_arg(*command->arguments, sa_cipher_algorithm);
+            void* algorithm_parameters = va_arg(*command->arguments, void*);
+            sa_key wrapping_key = va_arg(*command->arguments, sa_key);
+            void* in = va_arg(*command->arguments, void*);
+            size_t in_length = va_arg(*command->arguments, size_t);
+            command->result = sa_key_unwrap(key, rights, key_type, type_parameters, cipher_algorithm, algorithm_parameters, wrapping_key, in, in_length);
             break;
+        }
 
-        case SA_KEY_GET_PUBLIC:
-            command->result = sa_key_get_public(va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, sa_key));
+        case SA_KEY_GET_PUBLIC: {
+            void* out = va_arg(*command->arguments, void*);
+            size_t* out_length = va_arg(*command->arguments, size_t*);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            command->result = sa_key_get_public(out, out_length, key);
             break;
+        }
 
-        case SA_KEY_DERIVE:
-            command->result = sa_key_derive(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_kdf_algorithm),
-                    va_arg(*command->arguments, void*));
+        case SA_KEY_DERIVE: {
+            sa_key* key = va_arg(*command->arguments, sa_key*);
+            sa_rights* rights = va_arg(*command->arguments, sa_rights*);
+            sa_kdf_algorithm kdf_algorithm = va_arg(*command->arguments, sa_kdf_algorithm);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_key_derive(key, rights, kdf_algorithm, parameters);
             break;
+        }
 
-        case SA_KEY_EXCHANGE:
-            command->result = sa_key_exchange(va_arg(*command->arguments, sa_key*),
-                    va_arg(*command->arguments, sa_rights*), va_arg(*command->arguments, sa_key_exchange_algorithm),
-                    va_arg(*command->arguments, sa_key), va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t), va_arg(*command->arguments, void*));
+        case SA_KEY_EXCHANGE: {
+            sa_key* key = va_arg(*command->arguments, sa_key*);
+            sa_rights* rights = va_arg(*command->arguments, sa_rights*);
+            sa_key_exchange_algorithm key_exchange_algorithm = va_arg(*command->arguments, sa_key_exchange_algorithm);
+            sa_key private_key = va_arg(*command->arguments, sa_key);
+            void* other_public = va_arg(*command->arguments, void*);
+            size_t other_public_length = va_arg(*command->arguments, size_t);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_key_exchange(key, rights, key_exchange_algorithm, private_key, other_public, other_public_length, parameters);
             break;
+        }
 
         case SA_KEY_RELEASE:
             command->result = sa_key_release(va_arg(*command->arguments, sa_key));
             break;
 
-        case SA_KEY_HEADER:
-            command->result = sa_key_header(va_arg(*command->arguments, sa_header*),
-                    va_arg(*command->arguments, sa_key));
+        case SA_KEY_HEADER: {
+            sa_header* header = va_arg(*command->arguments, sa_header*);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            command->result = sa_key_header(header, key);
             break;
+        }
 
-        case SA_KEY_DIGEST:
-            command->result = sa_key_digest(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t*),
-                    va_arg(*command->arguments, sa_key), va_arg(*command->arguments, sa_digest_algorithm));
+        case SA_KEY_DIGEST: {
+            void* out = va_arg(*command->arguments, void*);
+            size_t* out_length = va_arg(*command->arguments, size_t*);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            sa_digest_algorithm digest_algorithm = va_arg(*command->arguments, sa_digest_algorithm);
+            command->result = sa_key_digest(out, out_length, key, digest_algorithm);
             break;
+        }
 
-        case SA_CRYPTO_CIPHER_INIT:
-            command->result = sa_crypto_cipher_init(va_arg(*command->arguments, sa_crypto_cipher_context*),
-                    va_arg(*command->arguments, sa_cipher_algorithm), va_arg(*command->arguments, sa_cipher_mode),
-                    va_arg(*command->arguments, sa_key), va_arg(*command->arguments, void*));
+        case SA_CRYPTO_CIPHER_INIT: {
+            sa_crypto_cipher_context* context = va_arg(*command->arguments, sa_crypto_cipher_context*);
+            sa_cipher_algorithm cipher_algorithm = va_arg(*command->arguments, sa_cipher_algorithm);
+            sa_cipher_mode cipher_mode = va_arg(*command->arguments, sa_cipher_mode);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_crypto_cipher_init(context, cipher_algorithm, cipher_mode, key, parameters);
             break;
+        }
 
-        case SA_CRYPTO_CIPHER_UPDATE_IV:
-            command->result = sa_crypto_cipher_update_iv(va_arg(*command->arguments, sa_crypto_cipher_context),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
+        case SA_CRYPTO_CIPHER_UPDATE_IV: {
+            sa_crypto_cipher_context context = va_arg(*command->arguments, sa_crypto_cipher_context);
+            void* iv = va_arg(*command->arguments, void*);
+            size_t iv_length = va_arg(*command->arguments, size_t);
+            command->result = sa_crypto_cipher_update_iv(context, iv, iv_length);
             break;
+        }
 
-        case SA_CRYPTO_CIPHER_PROCESS:
-            command->result = sa_crypto_cipher_process(va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, sa_crypto_cipher_context), va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, size_t*));
+        case SA_CRYPTO_CIPHER_PROCESS: {
+            sa_buffer* out = va_arg(*command->arguments, sa_buffer*);
+            sa_crypto_cipher_context context = va_arg(*command->arguments, sa_crypto_cipher_context);
+            sa_buffer* in = va_arg(*command->arguments, sa_buffer*);
+            size_t* bytes_to_process = va_arg(*command->arguments, size_t*);
+            command->result = sa_crypto_cipher_process(out, context, in, bytes_to_process);
             break;
+        }
 
-        case SA_CRYPTO_CIPHER_PROCESS_LAST:
-            command->result = sa_crypto_cipher_process_last(va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, sa_crypto_cipher_context), va_arg(*command->arguments, sa_buffer*),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, void*));
+        case SA_CRYPTO_CIPHER_PROCESS_LAST: {
+            sa_buffer* out = va_arg(*command->arguments, sa_buffer*);
+            sa_crypto_cipher_context context = va_arg(*command->arguments, sa_crypto_cipher_context);
+            sa_buffer* in = va_arg(*command->arguments, sa_buffer*);
+            size_t* bytes_to_process = va_arg(*command->arguments, size_t*);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_crypto_cipher_process_last(out, context, in, bytes_to_process, parameters);
             break;
+        }
 
         case SA_CRYPTO_CIPHER_RELEASE:
             command->result = sa_crypto_cipher_release(va_arg(*command->arguments, sa_crypto_cipher_context));
             break;
 
-        case SA_CRYPTO_MAC_INIT:
-            command->result = sa_crypto_mac_init(va_arg(*command->arguments, sa_crypto_mac_context*),
-                    va_arg(*command->arguments, sa_mac_algorithm), va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, void*));
+        case SA_CRYPTO_MAC_INIT: {
+            sa_crypto_mac_context* context = va_arg(*command->arguments, sa_crypto_mac_context*);
+            sa_mac_algorithm mac_algorithm = va_arg(*command->arguments, sa_mac_algorithm);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_crypto_mac_init(context, mac_algorithm, key, parameters);
             break;
+        }
 
-        case SA_CRYPTO_MAC_PROCESS:
-            command->result = sa_crypto_mac_process(va_arg(*command->arguments, sa_crypto_mac_context),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
+        case SA_CRYPTO_MAC_PROCESS: {
+            sa_crypto_mac_context context = va_arg(*command->arguments, sa_crypto_mac_context);
+            void* in = va_arg(*command->arguments, void*);
+            size_t in_length = va_arg(*command->arguments, size_t);
+            command->result = sa_crypto_mac_process(context, in, in_length);
             break;
+        }
 
-        case SA_CRYPTO_MAC_PROCESS_KEY:
-            command->result = sa_crypto_mac_process_key(va_arg(*command->arguments, sa_crypto_mac_context),
-                    va_arg(*command->arguments, sa_key));
+        case SA_CRYPTO_MAC_PROCESS_KEY: {
+            sa_crypto_mac_context context = va_arg(*command->arguments, sa_crypto_mac_context);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            command->result = sa_crypto_mac_process_key(context, key);
             break;
+        }
 
-        case SA_CRYPTO_MAC_COMPUTE:
-            command->result = sa_crypto_mac_compute(va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, sa_crypto_mac_context));
+        case SA_CRYPTO_MAC_COMPUTE: {
+            void* out = va_arg(*command->arguments, void*);
+            size_t* out_length = va_arg(*command->arguments, size_t*);
+            sa_crypto_mac_context context = va_arg(*command->arguments, sa_crypto_mac_context);
+            command->result = sa_crypto_mac_compute(out, out_length, context);
             break;
+        }
 
         case SA_CRYPTO_MAC_RELEASE:
             command->result = sa_crypto_mac_release(va_arg(*command->arguments, sa_crypto_mac_context));
             break;
 
-        case SA_CRYPTO_SIGN:
-            command->result = sa_crypto_sign(va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t*),
-                    va_arg(*command->arguments, sa_signature_algorithm), va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, void*));
+        case SA_CRYPTO_SIGN: {
+            void* out = va_arg(*command->arguments, void*);
+            size_t* out_length = va_arg(*command->arguments, size_t*);
+            sa_signature_algorithm signature_algorithm = va_arg(*command->arguments, sa_signature_algorithm);
+            sa_key key = va_arg(*command->arguments, sa_key);
+            void* in = va_arg(*command->arguments, void*);
+            size_t in_length = va_arg(*command->arguments, size_t);
+            void* parameters = va_arg(*command->arguments, void*);
+            command->result = sa_crypto_sign(out, out_length, signature_algorithm, key, in, in_length, parameters);
             break;
+        }
 
-        case SA_SVP_BUFFER_CREATE:
-            command->result = sa_svp_buffer_create(va_arg(*command->arguments, sa_svp_buffer*),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
+        case SA_SVP_BUFFER_CREATE: {
+            sa_svp_buffer* svp_buffer = va_arg(*command->arguments, sa_svp_buffer*);
+            void* svp_memory = va_arg(*command->arguments, void*);
+            size_t size = va_arg(*command->arguments, size_t);
+            command->result = sa_svp_buffer_create(svp_buffer, svp_memory, size);
             break;
+        }
 
         case SA_SVP_BUFFER_FREE:
             command->result = sa_svp_buffer_free(va_arg(*command->arguments, sa_svp_buffer));
             break;
 
-        case SA_SVP_BUFFER_RELEASE:
-            command->result = sa_svp_buffer_release(va_arg(*command->arguments, void**),
-                    va_arg(*command->arguments, size_t*), va_arg(*command->arguments, sa_svp_buffer));
+        case SA_SVP_BUFFER_RELEASE: {
+            void** svp_memory = va_arg(*command->arguments, void**);
+            size_t* size = va_arg(*command->arguments, size_t*);
+            sa_svp_buffer svp_buffer = va_arg(*command->arguments, sa_svp_buffer);
+            command->result = sa_svp_buffer_release(svp_memory, size, svp_buffer);
             break;
+        }
 
-        case SA_SVP_BUFFER_WRITE:
-            command->result = sa_svp_buffer_write(va_arg(*command->arguments, sa_svp_buffer),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_svp_offset*), va_arg(*command->arguments, size_t));
+        case SA_SVP_BUFFER_WRITE: {
+            sa_svp_buffer out = va_arg(*command->arguments, sa_svp_buffer);
+            void* in = va_arg(*command->arguments, void*);
+            size_t in_length = va_arg(*command->arguments, size_t);
+            sa_svp_offset* offsets = va_arg(*command->arguments, sa_svp_offset*);
+            size_t offsets_length = va_arg(*command->arguments, size_t);
+            command->result = sa_svp_buffer_write(out, in, in_length, offsets, offsets_length);
             break;
+        }
 
-        case SA_SVP_BUFFER_COPY:
-            command->result = sa_svp_buffer_copy(va_arg(*command->arguments, sa_svp_buffer),
-                    va_arg(*command->arguments, sa_svp_buffer), va_arg(*command->arguments, sa_svp_offset*),
-                    va_arg(*command->arguments, size_t));
+        case SA_SVP_BUFFER_COPY: {
+            sa_svp_buffer out = va_arg(*command->arguments, sa_svp_buffer);
+            sa_svp_buffer in = va_arg(*command->arguments, sa_svp_buffer);
+            sa_svp_offset* offsets = va_arg(*command->arguments, sa_svp_offset*);
+            size_t offsets_length = va_arg(*command->arguments, size_t);
+            command->result = sa_svp_buffer_copy(out, in, offsets, offsets_length);
             break;
+        }
 
-        case SA_SVP_KEY_CHECK:
-            command->result = sa_svp_key_check(va_arg(*command->arguments, sa_key),
-                    va_arg(*command->arguments, sa_buffer*), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, void*), va_arg(*command->arguments, size_t));
+        case SA_SVP_KEY_CHECK: {
+            sa_key key = va_arg(*command->arguments, sa_key);
+            sa_buffer* in = va_arg(*command->arguments, sa_buffer*);
+            size_t bytes_to_process = va_arg(*command->arguments, size_t);
+            void* expected = va_arg(*command->arguments, void*);
+            size_t expected_length = va_arg(*command->arguments, size_t);
+            command->result = sa_svp_key_check(key, in, bytes_to_process, expected, expected_length);
             break;
+        }
 
-        case SA_SVP_BUFFER_CHECK:
-            command->result = sa_svp_buffer_check(va_arg(*command->arguments, sa_svp_buffer),
-                    va_arg(*command->arguments, size_t), va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_digest_algorithm), va_arg(*command->arguments, void*),
-                    va_arg(*command->arguments, size_t));
+        case SA_SVP_BUFFER_CHECK: {
+            sa_svp_buffer svp_buffer = va_arg(*command->arguments, sa_svp_buffer);
+            size_t offset = va_arg(*command->arguments, size_t);
+            size_t length = va_arg(*command->arguments, size_t);
+            sa_digest_algorithm digest_algorithm = va_arg(*command->arguments, sa_digest_algorithm);
+            void* hash = va_arg(*command->arguments, void*);
+            size_t hash_length = va_arg(*command->arguments, size_t);
+            command->result = sa_svp_buffer_check(svp_buffer, offset, length, digest_algorithm, hash, hash_length);
             break;
+        }
 
-        case SA_PROCESS_COMMON_ENCRYPTION:
-            command->result = sa_process_common_encryption(va_arg(*command->arguments, size_t),
-                    va_arg(*command->arguments, sa_sample*));
+        case SA_PROCESS_COMMON_ENCRYPTION: {
+            size_t samples_length = va_arg(*command->arguments, size_t);
+            sa_sample* samples = va_arg(*command->arguments, sa_sample*);
+            command->result = sa_process_common_encryption(samples_length, samples);
             break;
+        }
 
         case SA_GET_VERSION:
         case SA_GET_DEVICE_ID:
