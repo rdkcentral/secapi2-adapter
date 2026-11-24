@@ -21,7 +21,13 @@
 #include "sec_security_store.h"
 #include "sec_security_utils.h"
 #include "test_ctx.h"
+#include <cerrno>
 #include <cstdlib>
+#include <dirent.h>
+#include <memory>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 #include <openssl/pem.h>
 #endif
@@ -336,6 +342,606 @@ Sec_Result testKeyNoSha(SEC_OBJECTID id, TestKey key, TestKc kc) {
 
     return SEC_RESULT_SUCCESS;
 }
+
+#if ENABLE_SOC_PROVISION_WIDEVINE
+static bool rawKeyFileMatches(const char* file_name, const std::vector<SEC_BYTE>& expected) {
+    std::vector<SEC_BYTE> raw(SEC_KEYCONTAINER_MAX_LEN);
+    SEC_SIZE raw_len = 0;
+    return SecUtils_ReadFile(file_name, raw.data(), raw.size(), &raw_len) == SEC_RESULT_SUCCESS &&
+           raw_len == expected.size() && memcmp(raw.data(), expected.data(), raw_len) == 0;
+}
+
+Sec_Result testKeyProvisionSocKeepsExportedAndRaw() {
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // TA provisioning reads this exact file name.
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/", wv_key_id);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", "/tmp/sec_api_test_app/",
+            wv_key_id);
+
+    // The exported key must still load, so a rollback to a build without TA provisioning keeps working.
+    Sec_KeyHandle* keyHandle = ctx.provisionKey(SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->key.data(),
+            prov->key.size(), prov->kc);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("ctx.provisionKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    if (!rawKeyFileMatches(raw_file, prov->key) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("Raw key file is missing, does not match the provisioned data, or left a temporary file");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A rejected provision must leave both copies untouched.
+    SEC_BYTE bad[64] = {0x30, 0x82, 0xde, 0xad};
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, bad, sizeof(bad)) ==
+            SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision was supposed to fail but didn't");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, prov->key)) {
+        SEC_LOG_ERROR("Raw key file was changed by a failed provision");
+        return SEC_RESULT_FAILURE;
+    }
+
+    keyHandle = ctx.getKey(SEC_OBJECTID_WV_KEY);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("Exported key was changed by a failed provision");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    // TA provisioning reads from app_dir, so RAM storage must be rejected without touching the stored copies.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_RAM, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision to RAM was supposed to fail for a SoC key but didn't");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, prov->key)) {
+        SEC_LOG_ERROR("Raw key file was changed by a rejected RAM provision");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(raw_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the raw key file");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A raw key left without its exported key, and the temporary file of an interrupted raw write, are still key
+    // material: deleting them must remove both and report success.
+    if (SecUtils_WriteFile(raw_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS ||
+            SecUtils_WriteFile(tmp_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecUtils_WriteFile failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(raw_file) ||
+            SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove a leftover raw key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecUtils_WriteFile(tmp_file, prov->key.data(), prov->key.size()) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecUtils_WriteFile failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not report/remove a temporary raw key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+
+// Removes the injected obstruction and the key even when a check fails, so later tests start clean.
+struct RawKeyObstructionGuard {
+    Sec_ProcessorHandle* proc;
+    SEC_OBJECTID object_id;
+    const char* blocker;
+
+    ~RawKeyObstructionGuard() {
+        if (blocker != nullptr) {
+            unlink(blocker);
+            SecKey_Delete(proc, object_id);
+        }
+    }
+};
+
+Sec_Result testKeyProvisionSocRawWriteFailure() {
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(key_file, sizeof(key_file), "%s" SEC_OBJECTID_PATTERN ".key", "/tmp/sec_api_test_app/", wv_key_id);
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/", wv_key_id);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", "/tmp/sec_api_test_app/",
+            wv_key_id);
+
+    SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+    unlink(tmp_file); // a dangling symlink left by an interrupted run is invisible to SecKey_Delete
+    if (SecUtils_FileExists(key_file) || SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("Could not remove a leftover key before the test");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A dangling symlink at the temporary name makes the raw write fail after the exported key has been saved. It
+    // cannot be opened for reading, so replacing the key does not see it as a leftover copy that must be deleted.
+    if (symlink("sec_api_missing_dir/raw.key", tmp_file) != 0) {
+        SEC_LOG_ERROR("symlink failed, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    RawKeyObstructionGuard guard{ctx.proc(), SEC_OBJECTID_WV_KEY, tmp_file};
+
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision was supposed to fail when the raw key could not be written");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecUtils_FileExists(raw_file)) {
+        SEC_LOG_ERROR("A raw key was published although writing it failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // The exported key stays, so the device keeps working and a rollback to a build without TA provisioning works.
+    Sec_KeyHandle* keyHandle = ctx.getKey(SEC_OBJECTID_WV_KEY);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("The exported key is not loadable after the raw write failed");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    if (unlink(tmp_file) != 0) {
+        SEC_LOG_ERROR("unlink failed, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    guard.blocker = nullptr;
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file) ||
+            SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the exported key once the obstruction was cleared");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+
+static const char* const LONG_APP_DIR_BASE = "/tmp/sec_api_test_long_app/";
+
+// Builds a directory path of exactly `length` characters, trailing separator included, under LONG_APP_DIR_BASE.
+// Components stay well below NAME_MAX; the processor creates the directories.
+static std::string longAppDirOfLength(size_t length) {
+    std::string path = LONG_APP_DIR_BASE;
+    while (path.size() < length) {
+        size_t remaining = length - path.size();
+        size_t component = remaining - 1;
+        if (component > 200)
+            component = remaining - 201 >= 2 ? 200 : 150;
+        path.append(component, 'd');
+        path += '/';
+    }
+    return path;
+}
+
+// Removes every file in the long app_dir and then the directory chain, even when a check fails.
+struct LongAppDirGuard {
+    std::string dir;
+
+    ~LongAppDirGuard() {
+        DIR* d = opendir(dir.c_str());
+        if (d != nullptr) {
+            struct dirent* entry;
+            while ((entry = readdir(d)) != nullptr) { // NOLINT
+                std::string name = entry->d_name;
+                if (name != "." && name != "..")
+                    unlink((dir + name).c_str());
+            }
+            closedir(d);
+        }
+
+        std::string path = dir;
+        while (path.size() > strlen(LONG_APP_DIR_BASE)) {
+            path.pop_back(); // trailing separator
+            rmdir(path.c_str());
+            path.erase(path.find_last_of('/') + 1);
+        }
+        rmdir(LONG_APP_DIR_BASE);
+    }
+};
+
+static bool readKeyFile(const char* file_name, std::vector<SEC_BYTE>& contents) {
+    contents.resize(SEC_KEYCONTAINER_MAX_LEN);
+    SEC_SIZE len = 0;
+    if (SecUtils_ReadFile(file_name, contents.data(), contents.size(), &len) != SEC_RESULT_SUCCESS)
+        return false;
+    contents.resize(len);
+    return true;
+}
+
+Sec_Result testKeyRawKeyPathTooLong() {
+    // The longest app_dir whose raw key path still fits: the temporary path then truncates to the raw key path.
+    const size_t raw_suffix_len = 16 + strlen("_raw.key");
+    LongAppDirGuard dir_guard{longAppDirOfLength(SEC_MAX_FILE_PATH_LEN - 1 - raw_suffix_len)};
+    const char* app_dir = dir_guard.dir.c_str();
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A key pair as stored by a build without the path checks: provision it in the default app_dir, keep its files.
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    static const char* const suffixes[] = {".key", ".keyinfo", ".sha", "_raw.key"};
+    const size_t num_files = sizeof(suffixes) / sizeof(suffixes[0]);
+    const size_t raw_index = num_files - 1;
+    std::vector<std::vector<SEC_BYTE>> pair(num_files);
+    {
+        TestCtx ctx;
+        if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+            SEC_LOG_ERROR("TestCtx.init failed");
+            return SEC_RESULT_FAILURE;
+        }
+
+        bool stored = SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc,
+                              prov->key.data(), prov->key.size()) == SEC_RESULT_SUCCESS;
+        for (size_t i = 0; stored && i < num_files; ++i) {
+            char path[SEC_MAX_FILE_PATH_LEN];
+            snprintf(path, sizeof(path), "%s" SEC_OBJECTID_PATTERN "%s", "/tmp/sec_api_test_app/", wv_key_id,
+                    suffixes[i]);
+            stored = readKeyFile(path, pair[i]);
+        }
+
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        if (!stored) {
+            SEC_LOG_ERROR("Could not store the key pair in the default app_dir");
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
+    char paths[num_files][SEC_MAX_FILE_PATH_LEN];
+    for (size_t i = 0; i < num_files; ++i) {
+        int len = snprintf(paths[i], sizeof(paths[i]), "%s" SEC_OBJECTID_PATTERN "%s", app_dir, wv_key_id,
+                suffixes[i]);
+        if (len < 0 || len >= static_cast<int>(sizeof(paths[i])) ||
+                (i == raw_index && len != static_cast<int>(sizeof(paths[i])) - 1)) {
+            SEC_LOG_ERROR("Unexpected path lengths for the long app_dir");
+            return SEC_RESULT_FAILURE;
+        }
+    }
+    const char* key_file = paths[0];
+    const char* raw_file = paths[raw_index];
+
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", app_dir) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A new key whose raw copy cannot be written safely must be rejected before any file is written.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision was supposed to fail when the raw key paths do not fit");
+        return SEC_RESULT_FAILURE;
+    }
+
+    for (size_t i = 0; i < num_files; ++i) {
+        if (SecUtils_FileExists(paths[i])) {
+            SEC_LOG_ERROR("SecKey_Provision wrote the %s file although the raw key paths do not fit", suffixes[i]);
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
+    for (size_t i = 0; i < num_files; ++i) {
+        if (SecUtils_WriteFile(paths[i], pair[i].data(), pair[i].size()) != SEC_RESULT_SUCCESS) {
+            SEC_LOG_ERROR("SecUtils_WriteFile failed");
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
+    Sec_KeyHandle* keyHandle = ctx.getKey(SEC_OBJECTID_WV_KEY);
+    if (keyHandle == nullptr) {
+        SEC_LOG_ERROR("The existing key pair is not loadable from the long app_dir");
+        return SEC_RESULT_FAILURE;
+    }
+    ctx.releaseKey(keyHandle);
+
+    // Replacing the pair must fail before either copy changes, or TA provisioning and a rollback would use
+    // different keys.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Provision was supposed to fail when replacing a pair whose raw key paths do not fit");
+        return SEC_RESULT_FAILURE;
+    }
+
+    for (size_t i = 0; i < num_files; ++i) {
+        if (!rawKeyFileMatches(paths[i], pair[i])) {
+            SEC_LOG_ERROR("SecKey_Provision changed the %s file of the existing pair", suffixes[i]);
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
+    // The raw key cannot be retracted atomically, so deleting must fail and leave both copies intact rather than
+    // wiping the raw key in place.
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Delete was supposed to fail for a raw key it cannot retract");
+        return SEC_RESULT_FAILURE;
+    }
+
+    for (size_t i = 0; i < num_files; ++i) {
+        if (!rawKeyFileMatches(paths[i], pair[i])) {
+            SEC_LOG_ERROR("SecKey_Delete changed the %s file of the existing pair", suffixes[i]);
+            return SEC_RESULT_FAILURE;
+        }
+    }
+
+    // Without the raw key, the exported key at this path can still be deleted.
+    if (unlink(raw_file) != 0) {
+        SEC_LOG_ERROR("unlink failed, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the exported key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Ordinary keys are unaffected in the same app_dir.
+    std::shared_ptr<ProvKey> aes(TestCreds::getKey(TESTKEY_AES128, TESTKC_RAW, SEC_OBJECTID_USER_BASE));
+    if (!aes) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const SEC_OBJECTID user_id = SEC_OBJECTID_USER_BASE;
+    char user_key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(user_key_file, sizeof(user_key_file), "%s" SEC_OBJECTID_PATTERN ".key", app_dir, user_id);
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_USER_BASE, SEC_STORAGELOC_FILE, aes->kc, aes->key.data(),
+                aes->key.size()) != SEC_RESULT_SUCCESS ||
+            !SecUtils_FileExists(user_key_file)) {
+        SEC_LOG_ERROR("SecKey_Provision failed for an ordinary key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_USER_BASE) != SEC_RESULT_SUCCESS ||
+            SecUtils_FileExists(user_key_file)) {
+        SEC_LOG_ERROR("SecKey_Delete failed for an ordinary key");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+
+// Removes the directory that blocks the raw key retraction and the key, even when a check fails.
+struct RetractionBlockerGuard {
+    Sec_ProcessorHandle* proc;
+    SEC_OBJECTID object_id;
+    const char* dir;
+    const char* file;
+
+    ~RetractionBlockerGuard() {
+        if (dir != nullptr) {
+            unlink(file);
+            rmdir(dir);
+            SecKey_Delete(proc, object_id);
+        }
+    }
+};
+
+Sec_Result testKeyDeleteKeepsRawKeyWhenRetractionFails() {
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(key_file, sizeof(key_file), "%s" SEC_OBJECTID_PATTERN ".key", "/tmp/sec_api_test_app/", wv_key_id);
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", "/tmp/sec_api_test_app/", wv_key_id);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", "/tmp/sec_api_test_app/",
+            wv_key_id);
+    char blocker_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(blocker_file, sizeof(blocker_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp/blocker",
+            "/tmp/sec_api_test_app/", wv_key_id);
+
+    SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+    if (SecUtils_FileExists(key_file) || SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("Could not remove a leftover key before the test");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::vector<SEC_BYTE> key_contents;
+    std::vector<SEC_BYTE> raw_contents;
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) != SEC_RESULT_SUCCESS ||
+            !readKeyFile(key_file, key_contents) || !readKeyFile(raw_file, raw_contents)) {
+        SEC_LOG_ERROR("Could not provision the key pair");
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+
+    // A non-empty directory at the temporary name makes renaming the raw key away fail.
+    if (mkdir(tmp_file, 0700) != 0 ||
+            SecUtils_WriteFile(blocker_file, prov->key.data(), 1) != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("Could not create the blocking directory, errno: %d", errno);
+        rmdir(tmp_file);
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+    RetractionBlockerGuard guard{ctx.proc(), SEC_OBJECTID_WV_KEY, tmp_file, blocker_file};
+
+    // Without a durable retraction, deleting must fail and keep both copies rather than wipe the raw key in place.
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Delete was supposed to fail when the raw key could not be retracted");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, raw_contents) || !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("SecKey_Delete wiped a copy although the raw key could not be retracted");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Replacing the key must fail the same way instead of storing a new exported key next to the old raw key.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS ||
+            !rawKeyFileMatches(raw_file, raw_contents) || !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("Replacing the key changed a copy although the raw key could not be retracted");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (unlink(blocker_file) != 0 || rmdir(tmp_file) != 0) {
+        SEC_LOG_ERROR("Could not remove the blocking directory, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    guard.dir = nullptr;
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file) ||
+            SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the key once the retraction could succeed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+
+// Gives the app_dir its mode back, and removes the key, even when a check fails.
+struct AppDirModeGuard {
+    Sec_ProcessorHandle* proc;
+    SEC_OBJECTID object_id;
+    const char* dir;
+    mode_t mode;
+
+    ~AppDirModeGuard() {
+        if (dir != nullptr) {
+            chmod(dir, mode);
+            SecKey_Delete(proc, object_id);
+        }
+    }
+};
+
+Sec_Result testKeyDeleteRestoresRawKeyWhenSyncFails() {
+    // Without read permission on app_dir, renaming within it still works but opening it to fsync the rename fails.
+    // Root ignores the permission, so the failure cannot be injected there.
+    if (geteuid() == 0) {
+        SEC_PRINT("Skipping: running as root, the directory fsync failure cannot be injected\n");
+        return SEC_RESULT_SUCCESS;
+    }
+
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const char* app_dir = "/tmp/sec_api_test_app/";
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(key_file, sizeof(key_file), "%s" SEC_OBJECTID_PATTERN ".key", app_dir, wv_key_id);
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", app_dir, wv_key_id);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", app_dir, wv_key_id);
+
+    SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+    std::vector<SEC_BYTE> key_contents;
+    std::vector<SEC_BYTE> raw_contents;
+    if (SecUtils_FileExists(tmp_file) ||
+            SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                    prov->key.size()) != SEC_RESULT_SUCCESS ||
+            !readKeyFile(key_file, key_contents) || !readKeyFile(raw_file, raw_contents)) {
+        SEC_LOG_ERROR("Could not provision the key pair");
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+
+    struct stat st;
+    if (stat(app_dir, &st) != 0 || chmod(app_dir, S_IWUSR | S_IXUSR) != 0) {
+        SEC_LOG_ERROR("Could not change the app_dir mode, errno: %d", errno);
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+    AppDirModeGuard guard{ctx.proc(), SEC_OBJECTID_WV_KEY, app_dir, st.st_mode & 07777};
+
+    // The raw key is renamed away but the rename cannot be made durable: deleting must fail and put it back.
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Delete was supposed to fail when the directory could not be synced");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, raw_contents) || SecUtils_FileExists(tmp_file) ||
+            !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("SecKey_Delete did not restore the raw key after the directory sync failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Replacing the key must fail the same way and leave the previous pair available to TA provisioning.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS ||
+            !rawKeyFileMatches(raw_file, raw_contents) || SecUtils_FileExists(tmp_file) ||
+            !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("Replacing the key did not leave the previous pair in place after the directory sync failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (chmod(app_dir, guard.mode) != 0) {
+        SEC_LOG_ERROR("Could not restore the app_dir mode, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    guard.dir = nullptr;
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file) ||
+            SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the key once the directory could be synced");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
+#endif
 
 static Sec_KeyType GroupToKeyType(const EC_GROUP* group) {
     if (nullptr == group)

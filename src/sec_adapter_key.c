@@ -611,15 +611,27 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
         SEC_LOG_ERROR("Key data is too long");
         return SEC_RESULT_FAILURE;
     }
-    /*
-     * Check for Specific Object_id and Store in the memory to Process SoC vendor-specific provisioning
-     */
+
+    // TA provisioning reads both copies from app_dir, so SoC vendor-specific keys must be file backed.
+    if (SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS && location != SEC_STORAGELOC_FILE &&
+            location != SEC_STORAGELOC_FILE_SOFT_WRAPPED) {
+        SEC_LOG_ERROR("SoC vendor-specific key " SEC_OBJECTID_PATTERN " must be stored in a file", object_id);
+        return SEC_RESULT_INVALID_PARAMETERS;
+    }
+
+    // Check the raw key paths before anything is stored, so a key whose raw copy cannot be written safely (its
+    // temporary name would truncate, possibly to the raw key name itself) leaves the stored copies untouched.
     if (SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS) {
-       if (store_raw_data(processorHandle, location, object_id, data, data_length) == SEC_RESULT_FAILURE) { 
-           SEC_LOG_ERROR("Failed store_raw_data in SecKey_Provision");
-           return SEC_RESULT_FAILURE;
-       }
-       return SEC_RESULT_SUCCESS;
+        char raw_path[SEC_MAX_FILE_PATH_LEN];
+        char raw_tmp_path[SEC_MAX_FILE_PATH_LEN];
+        if (SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_FALSE, raw_path, sizeof(raw_path)) !=
+                        SEC_TRUE ||
+                SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_TRUE, raw_tmp_path,
+                        sizeof(raw_tmp_path)) != SEC_TRUE) {
+            SEC_LOG_ERROR("Raw key path for SoC vendor-specific key " SEC_OBJECTID_PATTERN " does not fit in app_dir",
+                    object_id);
+            return SEC_RESULT_INVALID_PARAMETERS;
+        }
     }
 
     Sec_Key key;
@@ -639,6 +651,18 @@ Sec_Result SecKey_Provision(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID o
                 key_length);
 
     SEC_FREE(key_buffer);
+
+    /*
+     * SoC vendor-specific keys are kept in two forms: the exported <id>.key (so older builds still work after a
+     * rollback) and the raw <id>_raw.key consumed by TA provisioning. The raw copy is written last so its presence
+     * means both copies were stored successfully.
+     */
+    if (result == SEC_RESULT_SUCCESS && SecSocProv_SocVendorSpecific(object_id) == SEC_RESULT_SUCCESS) {
+        result = store_raw_data(processorHandle, location, object_id, data, data_length);
+        if (result != SEC_RESULT_SUCCESS)
+            SEC_LOG_ERROR("Failed store_raw_data for object " SEC_OBJECTID_PATTERN, object_id);
+    }
+
     return result;
 }
 
@@ -1176,6 +1200,27 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
     SEC_SIZE keys_deleted = 0;
     CHECK_PROCHANDLE(processorHandle)
 
+    /*
+     * The raw key is only retracted and wiped through complete paths: with a long app_dir a truncated temporary
+     * name can equal the raw key name, so the rename would not retract it and the wipe would zero it in place.
+     */
+    char file_name_raw[SEC_MAX_FILE_PATH_LEN];
+    char file_name_raw_tmp[SEC_MAX_FILE_PATH_LEN];
+    SEC_BOOL raw_paths_fit = SEC_FALSE;
+    if (processorHandle->app_dir != NULL) {
+        SEC_BOOL raw_fits = SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_FALSE, file_name_raw,
+                sizeof(file_name_raw));
+        SEC_BOOL raw_tmp_fits = SecSocProv_RawKeyPath(processorHandle->app_dir, object_id, SEC_TRUE,
+                file_name_raw_tmp, sizeof(file_name_raw_tmp));
+        raw_paths_fit = (raw_fits == SEC_TRUE && raw_tmp_fits == SEC_TRUE) ? SEC_TRUE : SEC_FALSE;
+
+        /* A raw key that cannot be retracted safely is kept with its exported key, so the pair stays consistent. */
+        if (raw_fits == SEC_TRUE && raw_paths_fit != SEC_TRUE && SecUtils_FileExists(file_name_raw)) {
+            SEC_LOG_ERROR("Cannot retract raw key %s: its temporary path does not fit", file_name_raw);
+            return SEC_RESULT_ITEM_NON_REMOVABLE;
+        }
+    }
+
     /* ram */
     find_ram_key_data(processorHandle, object_id, &ram_key, &ram_key_parent);
     if (ram_key != NULL) {
@@ -1194,6 +1239,56 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
 
     /* file system */
     if (processorHandle->app_dir != NULL) {
+        /*
+         * Retract the raw key first, atomically: rename it to the temporary name and persist the rename before
+         * wiping anything. SecUtils_RmFile zero-fills before unlinking, so wiping <id>_raw.key in place, or wiping
+         * the renamed file before the rename is durable, could leave a durable zero-filled raw key behind after a
+         * power loss, and its presence means both copies are good. If the retraction cannot be made durable, stop
+         * and keep every copy.
+         */
+        if (raw_paths_fit == SEC_TRUE) {
+            SEC_BOOL raw_found = SecUtils_FileExists(file_name_raw);
+            if (raw_found == SEC_TRUE) {
+                ++keys_found;
+                if (rename(file_name_raw, file_name_raw_tmp) != 0) {
+                    SEC_LOG_ERROR("Rename of %s failed, errno: %d", file_name_raw, errno);
+                    return SEC_RESULT_ITEM_NON_REMOVABLE;
+                }
+            }
+
+            /* The renamed raw key, or a leftover from an interrupted store_raw_data. */
+            if (SecUtils_FileExists(file_name_raw_tmp)) {
+                ++keys_found;
+
+                int dir_fd = open(processorHandle->app_dir, O_RDONLY | O_CLOEXEC); // NOLINT
+                SEC_BOOL synced = dir_fd >= 0 && fsync(dir_fd) == 0 ? SEC_TRUE : SEC_FALSE;
+                if (synced != SEC_TRUE)
+                    SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
+                if (dir_fd >= 0)
+                    close(dir_fd);
+                if (synced != SEC_TRUE) {
+                    /*
+                     * Put back a raw key this call renamed, so the stored copies stay as they were. A leftover
+                     * temporary file is never renamed to the raw key name: it may be partial.
+                     */
+                    if (raw_found == SEC_TRUE && rename(file_name_raw_tmp, file_name_raw) != 0) {
+                        SEC_LOG_ERROR("Could not restore %s, errno: %d; its contents remain in %s", file_name_raw,
+                                errno, file_name_raw_tmp);
+                        return SEC_RESULT_FAILURE;
+                    }
+
+                    return SEC_RESULT_ITEM_NON_REMOVABLE;
+                }
+
+                SecUtils_RmFile(file_name_raw_tmp);
+                if (!SecUtils_FileExists(file_name_raw_tmp))
+                    ++keys_deleted;
+            }
+
+            if (raw_found == SEC_TRUE && !SecUtils_FileExists(file_name_raw))
+                ++keys_deleted;
+        }
+
         char file_name[SEC_MAX_FILE_PATH_LEN];
         snprintf(file_name, sizeof(file_name), "%s" SEC_KEY_FILENAME_PATTERN, processorHandle->app_dir, object_id);
         if (SecUtils_FileExists(file_name)) {
@@ -2386,7 +2481,12 @@ static Sec_Result store_key_data(Sec_ProcessorHandle* processorHandle, Sec_Stora
     Sec_RAMKeyData* ram_key;
 
     if (location == SEC_STORAGELOC_RAM || location == SEC_STORAGELOC_RAM_SOFT_WRAPPED) {
-        SecKey_Delete(processorHandle, object_id);
+        Sec_Result delete_result = SecKey_Delete(processorHandle, object_id);
+        if (delete_result != SEC_RESULT_SUCCESS && delete_result != SEC_RESULT_NO_SUCH_ITEM) {
+            SEC_LOG_ERROR("Could not replace key " SEC_OBJECTID_PATTERN ": the existing key was not deleted",
+                    object_id);
+            return delete_result;
+        }
 
         ram_key = calloc(1, sizeof(Sec_RAMKeyData));
         if (ram_key == NULL) {
@@ -2407,7 +2507,13 @@ static Sec_Result store_key_data(Sec_ProcessorHandle* processorHandle, Sec_Stora
             return SEC_RESULT_FAILURE;
         }
 
-        SecKey_Delete(processorHandle, object_id);
+        // Never overwrite the exported key while an old copy (e.g. its raw key) survives, or they would diverge.
+        Sec_Result delete_result = SecKey_Delete(processorHandle, object_id);
+        if (delete_result != SEC_RESULT_SUCCESS && delete_result != SEC_RESULT_NO_SUCH_ITEM) {
+            SEC_LOG_ERROR("Could not replace key " SEC_OBJECTID_PATTERN ": the existing key was not deleted",
+                    object_id);
+            return delete_result;
+        }
 
         char file_name_key[SEC_MAX_FILE_PATH_LEN];
         char file_name_info[SEC_MAX_FILE_PATH_LEN];

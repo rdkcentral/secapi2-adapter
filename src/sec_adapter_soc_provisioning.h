@@ -24,6 +24,11 @@
 #include "sec_security_utils.h"
 #include <memory.h>
 
+/* Raw (unexported) copy of a SoC vendor-specific key, consumed by TA provisioning. */
+#define SEC_KEY_RAW_FILENAME_PATTERN SEC_OBJECTID_PATTERN "_raw.key"
+/* Written first by store_raw_data and then renamed to the raw key file, so the raw key file is never partial. */
+#define SEC_KEY_RAW_TMP_FILENAME_PATTERN SEC_KEY_RAW_FILENAME_PATTERN ".tmp"
+
 
 /* Number of objects to sa_key_provision_ta for provisioning */
 #define WIDEVINE_OBJ 2
@@ -95,6 +100,20 @@ bool readNetflixData(Sec_ProcessorHandle* processorHandle, NetflixProvisioning**
  * @return Result of the operation.
  */
 Sec_Result SecSocProv_SocVendorSpecific(SEC_OBJECTID object_id);
+
+/**
+ * @brief Formats the path of an object's raw key file, or of its temporary file.
+ *
+ * @param app_dir The application directory, ending with a path separator.
+ * @param object_id The object ID of the key.
+ * @param temporary SEC_TRUE for the temporary file written before the raw key is published.
+ * @param path Output buffer for the path.
+ * @param path_len The size of the output buffer.
+ * @return SEC_TRUE only when the whole path fits. A truncated path can name another file, including the published
+ * raw key itself, so nothing may be written, renamed or wiped through it.
+ */
+SEC_BOOL SecSocProv_RawKeyPath(const char* app_dir, SEC_OBJECTID object_id, SEC_BOOL temporary, char* path,
+        size_t path_len);
 
 /**
  * @brief Stores raw data in a specified location for a given object ID.
