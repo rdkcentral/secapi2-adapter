@@ -1266,8 +1266,19 @@ Sec_Result SecKey_Delete(Sec_ProcessorHandle* processorHandle, SEC_OBJECTID obje
                     SEC_LOG_ERROR("Fsync failed for directory: %s, errno: %d", processorHandle->app_dir, errno);
                 if (dir_fd >= 0)
                     close(dir_fd);
-                if (synced != SEC_TRUE)
+                if (synced != SEC_TRUE) {
+                    /*
+                     * Put back a raw key this call renamed, so the stored copies stay as they were. A leftover
+                     * temporary file is never renamed to the raw key name: it may be partial.
+                     */
+                    if (raw_found == SEC_TRUE && rename(file_name_raw_tmp, file_name_raw) != 0) {
+                        SEC_LOG_ERROR("Could not restore %s, errno: %d; its contents remain in %s", file_name_raw,
+                                errno, file_name_raw_tmp);
+                        return SEC_RESULT_FAILURE;
+                    }
+
                     return SEC_RESULT_ITEM_NON_REMOVABLE;
+                }
 
                 SecUtils_RmFile(file_name_raw_tmp);
                 if (!SecUtils_FileExists(file_name_raw_tmp))

@@ -841,6 +841,106 @@ Sec_Result testKeyDeleteKeepsRawKeyWhenRetractionFails() {
 
     return SEC_RESULT_SUCCESS;
 }
+
+// Gives the app_dir its mode back, and removes the key, even when a check fails.
+struct AppDirModeGuard {
+    Sec_ProcessorHandle* proc;
+    SEC_OBJECTID object_id;
+    const char* dir;
+    mode_t mode;
+
+    ~AppDirModeGuard() {
+        if (dir != nullptr) {
+            chmod(dir, mode);
+            SecKey_Delete(proc, object_id);
+        }
+    }
+};
+
+Sec_Result testKeyDeleteRestoresRawKeyWhenSyncFails() {
+    // Without read permission on app_dir, renaming within it still works but opening it to fsync the rename fails.
+    // Root ignores the permission, so the failure cannot be injected there.
+    if (geteuid() == 0) {
+        SEC_PRINT("Skipping: running as root, the directory fsync failure cannot be injected\n");
+        return SEC_RESULT_SUCCESS;
+    }
+
+    TestCtx ctx;
+    if (ctx.init("/tmp/sec_api_test_global", "/tmp/sec_api_test_app") != SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("TestCtx.init failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    std::shared_ptr<ProvKey> prov(TestCreds::getKey(TESTKEY_RSA2048_SGN_PRIV, TESTKC_RAW, SEC_OBJECTID_WV_KEY));
+    if (!prov) {
+        SEC_LOG_ERROR("TestCreds::getKey failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    const char* app_dir = "/tmp/sec_api_test_app/";
+    const SEC_OBJECTID wv_key_id = SEC_OBJECTID_WV_KEY;
+    char key_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(key_file, sizeof(key_file), "%s" SEC_OBJECTID_PATTERN ".key", app_dir, wv_key_id);
+    char raw_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(raw_file, sizeof(raw_file), "%s" SEC_OBJECTID_PATTERN "_raw.key", app_dir, wv_key_id);
+    char tmp_file[SEC_MAX_FILE_PATH_LEN];
+    snprintf(tmp_file, sizeof(tmp_file), "%s" SEC_OBJECTID_PATTERN "_raw.key.tmp", app_dir, wv_key_id);
+
+    SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+    std::vector<SEC_BYTE> key_contents;
+    std::vector<SEC_BYTE> raw_contents;
+    if (SecUtils_FileExists(tmp_file) ||
+            SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                    prov->key.size()) != SEC_RESULT_SUCCESS ||
+            !readKeyFile(key_file, key_contents) || !readKeyFile(raw_file, raw_contents)) {
+        SEC_LOG_ERROR("Could not provision the key pair");
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+
+    struct stat st;
+    if (stat(app_dir, &st) != 0 || chmod(app_dir, S_IWUSR | S_IXUSR) != 0) {
+        SEC_LOG_ERROR("Could not change the app_dir mode, errno: %d", errno);
+        SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY);
+        return SEC_RESULT_FAILURE;
+    }
+    AppDirModeGuard guard{ctx.proc(), SEC_OBJECTID_WV_KEY, app_dir, st.st_mode & 07777};
+
+    // The raw key is renamed away but the rename cannot be made durable: deleting must fail and put it back.
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) == SEC_RESULT_SUCCESS) {
+        SEC_LOG_ERROR("SecKey_Delete was supposed to fail when the directory could not be synced");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (!rawKeyFileMatches(raw_file, raw_contents) || SecUtils_FileExists(tmp_file) ||
+            !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("SecKey_Delete did not restore the raw key after the directory sync failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    // Replacing the key must fail the same way and leave the previous pair available to TA provisioning.
+    if (SecKey_Provision(ctx.proc(), SEC_OBJECTID_WV_KEY, SEC_STORAGELOC_FILE, prov->kc, prov->key.data(),
+                prov->key.size()) == SEC_RESULT_SUCCESS ||
+            !rawKeyFileMatches(raw_file, raw_contents) || SecUtils_FileExists(tmp_file) ||
+            !rawKeyFileMatches(key_file, key_contents)) {
+        SEC_LOG_ERROR("Replacing the key did not leave the previous pair in place after the directory sync failed");
+        return SEC_RESULT_FAILURE;
+    }
+
+    if (chmod(app_dir, guard.mode) != 0) {
+        SEC_LOG_ERROR("Could not restore the app_dir mode, errno: %d", errno);
+        return SEC_RESULT_FAILURE;
+    }
+    guard.dir = nullptr;
+
+    if (SecKey_Delete(ctx.proc(), SEC_OBJECTID_WV_KEY) != SEC_RESULT_SUCCESS || SecUtils_FileExists(key_file) ||
+            SecUtils_FileExists(raw_file) || SecUtils_FileExists(tmp_file)) {
+        SEC_LOG_ERROR("SecKey_Delete did not remove the key once the directory could be synced");
+        return SEC_RESULT_FAILURE;
+    }
+
+    return SEC_RESULT_SUCCESS;
+}
 #endif
 
 static Sec_KeyType GroupToKeyType(const EC_GROUP* group) {
